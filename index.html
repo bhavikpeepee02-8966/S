@@ -166,6 +166,17 @@
     padding:7px 11px; background:rgba(79,168,160,0.08);
   }
   .nse-link:active{ filter:brightness(1.2); }
+  .tabbar{
+    display:flex; gap:8px; padding:14px 14px 0;
+  }
+  .tab-btn{
+    flex:1; padding:11px 8px; font-size:.88rem; font-weight:600;
+    background:var(--surface); color:var(--text-muted);
+    border:1px solid var(--border); border-radius:6px; cursor:pointer;
+  }
+  .tab-btn.active{
+    background:var(--accent-dim); color:var(--text); border-color:var(--accent);
+  }
   .explain-text{
     font-size:.88rem; color:var(--text); line-height:1.7; margin:0;
   }
@@ -180,6 +191,13 @@
 
 <main>
 
+  <div class="tabbar">
+    <button id="tab1Btn" class="tab-btn active">ભાગ 1: શેર એનાલિસિસ</button>
+    <button id="tab2Btn" class="tab-btn">ભાગ 2: સેક્ટર + બલ્ક ડીલ</button>
+  </div>
+
+  <div id="part1View">
+
   <section class="panel">
     <h2>શેર પસંદ કરો</h2>
     <div class="row">
@@ -187,30 +205,6 @@
       <button id="deleteSymbolBtn" class="danger">ડિલીટ</button>
     </div>
     <p class="hint" id="priceBadge" style="margin-top:10px; font-size:.9rem;"></p>
-  </section>
-
-  <section class="panel">
-    <h2>સેક્ટર સંકેત (9:15 vs 10:30)</h2>
-    <a class="nse-link" href="https://www.nseindia.com/market-data/live-market-indices" target="_blank" rel="noopener">NSE Live Market Indices પેજ ખોલો →</a>
-    <span class="field-label" style="margin-top:10px; display:block;">ઉપરની લિંક પરથી CSV ડાઉનલોડ કરીને બે વાર અપલોડ કરો</span>
-
-    <div class="row" style="margin-top:8px;">
-      <div style="flex:1; min-width:150px;">
-        <span class="field-label">9:15 નું CSV</span>
-        <input type="file" id="sectorMorningInput" accept=".csv,text/csv">
-      </div>
-      <div style="flex:1; min-width:150px;">
-        <span class="field-label">10:30 નું CSV</span>
-        <input type="file" id="sectorMiddayInput" accept=".csv,text/csv">
-      </div>
-    </div>
-
-    <div class="row" style="margin-top:10px;">
-      <button id="clearSectorBtn" class="danger">આજનો ડેટા સાફ કરો (નવો દિવસ)</button>
-    </div>
-
-    <div id="sectorResultsWrap" style="margin-top:12px;"></div>
-    <p class="hint" style="margin-top:10px;">"મજબૂત" = 9:15 થી 10:30 સુધીમાં gain ટકી રહ્યો/વધ્યો. "નબળો" = gain ઘટવા લાગ્યો. NSE ના 139 index માંથી ફક્ત 19 ખરેખર ટ્રેડ કરવા લાયક sector જ બતાવાય છે (broad-market/strategy/bond indices hide કરેલા). ફક્ત reference છે, ગેરંટી નથી.</p>
   </section>
 
   <section class="panel">
@@ -226,27 +220,6 @@
     </div>
 
     <div id="tableWrap"></div>
-  </section>
-
-  <section class="panel">
-    <h2>બલ્ક / બ્લોક ડીલ (મોટા રોકાણકારો)</h2>
-    <a class="nse-link" href="https://www.nseindia.com/market-data/large-deals" target="_blank" rel="noopener">NSE Large Deals પેજ ખોલો →</a>
-    <span class="field-label" style="margin-top:10px; display:block;">આજની Bulk/Block Deal CSV અપલોડ કરો — મોટા players કયા શેરમાં ખરીદી/વેચાણ કરે છે એ દેખાશે</span>
-    <div class="row" style="margin-top:8px;">
-      <input type="file" id="bulkDealInput" accept=".csv,text/csv">
-    </div>
-    <div class="row" style="margin-top:10px;">
-      <button id="clearBulkBtn" class="danger">આજનો ડેટા સાફ કરો</button>
-    </div>
-    <div id="bulkDealWrap" style="margin-top:12px;"></div>
-    <p class="hint" style="margin-top:10px;">મોટા quantity/value ધરાવતા deals ઉપર sort થાય છે. Buy = ખરીદી (લીલો), Sell = વેચાણ (લાલ). ફક્ત reference — મોટા investor ખરીદે એટલે ભાવ વધશે જ એની ગેરંટી નથી.</p>
-  </section>
-
-  <section class="panel">
-    <h2>વોચ લિસ્ટ (સેક્ટર + બલ્ક ડીલ ભેગા)</h2>
-    <span class="field-label">જે શેરના sector માં momentum "મજબૂત" હોય, ને એ જ શેરમાં bulk deal Buy પણ થયો હોય — એવા શેર અહીં આપોઆપ ભેગા થશે</span>
-    <div id="watchListWrap" style="margin-top:12px;"></div>
-    <p class="hint" style="margin-top:10px;">આ "કેટલા % ઉપર જશે" એની prediction નથી — ફક્ત "2 positive signal ભેગા મળ્યા" એ fact બતાવે છે. Sector ના stock-mapping સામાન્ય જાણકારી પરથી છે (NSE ના official/live constituent list સાથે 100% ના પણ મળે). નિર્ણય ને risk તમારો.</p>
   </section>
 
   <section class="panel" id="chartSection" style="display:none;">
@@ -291,6 +264,57 @@
       </div>
     </details>
   </section>
+
+  </div>
+
+  <div id="part2View" style="display:none;">
+
+  <section class="panel">
+    <h2>સેક્ટર સંકેત (9:15 vs 10:30)</h2>
+    <a class="nse-link" href="https://www.nseindia.com/market-data/live-market-indices" target="_blank" rel="noopener">NSE Live Market Indices પેજ ખોલો →</a>
+    <span class="field-label" style="margin-top:10px; display:block;">ઉપરની લિંક પરથી CSV ડાઉનલોડ કરીને બે વાર અપલોડ કરો</span>
+
+    <div class="row" style="margin-top:8px;">
+      <div style="flex:1; min-width:150px;">
+        <span class="field-label">9:15 નું CSV</span>
+        <input type="file" id="sectorMorningInput" accept=".csv,text/csv">
+      </div>
+      <div style="flex:1; min-width:150px;">
+        <span class="field-label">10:30 નું CSV</span>
+        <input type="file" id="sectorMiddayInput" accept=".csv,text/csv">
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <button id="clearSectorBtn" class="danger">આજનો ડેટા સાફ કરો (નવો દિવસ)</button>
+    </div>
+
+    <div id="sectorResultsWrap" style="margin-top:12px;"></div>
+    <p class="hint" style="margin-top:10px;">"મજબૂત" = 9:15 થી 10:30 સુધીમાં gain ટકી રહ્યો/વધ્યો. "નબળો" = gain ઘટવા લાગ્યો. NSE ના 139 index માંથી ફક્ત 19 ખરેખર ટ્રેડ કરવા લાયક sector જ બતાવાય છે (broad-market/strategy/bond indices hide કરેલા). ફક્ત reference છે, ગેરંટી નથી.</p>
+  </section>
+
+  <section class="panel">
+    <h2>બલ્ક / બ્લોક ડીલ (મોટા રોકાણકારો)</h2>
+    <a class="nse-link" href="https://www.nseindia.com/market-data/large-deals" target="_blank" rel="noopener">NSE Large Deals પેજ ખોલો →</a>
+    <span class="field-label" style="margin-top:10px; display:block;">આજની Bulk/Block Deal CSV અપલોડ કરો — મોટા players કયા શેરમાં ખરીદી/વેચાણ કરે છે એ દેખાશે</span>
+    <div class="row" style="margin-top:8px;">
+      <input type="file" id="bulkDealInput" accept=".csv,text/csv">
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button id="clearBulkBtn" class="danger">આજનો ડેટા સાફ કરો</button>
+    </div>
+    <div id="bulkDealWrap" style="margin-top:12px;"></div>
+    <p class="hint" style="margin-top:10px;">મોટા quantity/value ધરાવતા deals ઉપર sort થાય છે. Buy = ખરીદી (લીલો), Sell = વેચાણ (લાલ). ફક્ત reference — મોટા investor ખરીદે એટલે ભાવ વધશે જ એની ગેરંટી નથી.</p>
+  </section>
+
+  <section class="panel">
+    <h2>વોચ લિસ્ટ (સેક્ટર + બલ્ક ડીલ ભેગા)</h2>
+    <span class="field-label">જે શેરના sector માં momentum "મજબૂત" હોય, ને એ જ શેરમાં bulk deal Buy પણ થયો હોય — એવા શેર અહીં આપોઆપ ભેગા થશે</span>
+    <div id="watchListWrap" style="margin-top:12px;"></div>
+    <p class="hint" style="margin-top:10px;">આ "કેટલા % ઉપર જશે" એની prediction નથી — ફક્ત "2 positive signal ભેગા મળ્યા" એ fact બતાવે છે. Sector ના stock-mapping સામાન્ય જાણકારી પરથી છે (NSE ના official/live constituent list સાથે 100% ના પણ મળે). નિર્ણય ને risk તમારો.</p>
+  </section>
+
+  </div>
 
   <p class="disclaimer">આ એપ ફક્ત શૈક્ષણિક હેતુ માટે ટેકનિકલ એનાલિસિસ બતાવે છે. રોકાણ/ટ્રેડિંગ સલાહ નથી. બજારમાં જોખમ રહેલું છે.</p>
 
@@ -1257,6 +1281,27 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   });
 }
+
+// ---- Tab switcher: Part 1 (stock analysis) vs Part 2 (sector + bulk deal) ----
+const tab1Btn = document.getElementById('tab1Btn');
+const tab2Btn = document.getElementById('tab2Btn');
+const part1View = document.getElementById('part1View');
+const part2View = document.getElementById('part2View');
+
+tab1Btn.addEventListener('click', ()=>{
+  part1View.style.display = '';
+  part2View.style.display = 'none';
+  tab1Btn.classList.add('active');
+  tab2Btn.classList.remove('active');
+  window.scrollTo(0,0);
+});
+tab2Btn.addEventListener('click', ()=>{
+  part1View.style.display = 'none';
+  part2View.style.display = '';
+  tab2Btn.classList.add('active');
+  tab1Btn.classList.remove('active');
+  window.scrollTo(0,0);
+});
 </script>
 </body>
 </html>
