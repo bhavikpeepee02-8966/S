@@ -242,6 +242,13 @@
     <p class="hint" style="margin-top:10px;">મોટા quantity/value ધરાવતા deals ઉપર sort થાય છે. Buy = ખરીદી (લીલો), Sell = વેચાણ (લાલ). ફક્ત reference — મોટા investor ખરીદે એટલે ભાવ વધશે જ એની ગેરંટી નથી.</p>
   </section>
 
+  <section class="panel">
+    <h2>વોચ લિસ્ટ (સેક્ટર + બલ્ક ડીલ ભેગા)</h2>
+    <span class="field-label">જે શેરના sector માં momentum "મજબૂત" હોય, ને એ જ શેરમાં bulk deal Buy પણ થયો હોય — એવા શેર અહીં આપોઆપ ભેગા થશે</span>
+    <div id="watchListWrap" style="margin-top:12px;"></div>
+    <p class="hint" style="margin-top:10px;">આ "કેટલા % ઉપર જશે" એની prediction નથી — ફક્ત "2 positive signal ભેગા મળ્યા" એ fact બતાવે છે. Sector ના stock-mapping સામાન્ય જાણકારી પરથી છે (NSE ના official/live constituent list સાથે 100% ના પણ મળે). નિર્ણય ને risk તમારો.</p>
+  </section>
+
   <section class="panel" id="chartSection" style="display:none;">
     <h2>ચાર્ટ</h2>
     <canvas id="chartCanvas" height="260"></canvas>
@@ -580,6 +587,7 @@ function handleSectorUpload(file, slot){
     sectorStore[slot] = map;
     saveSectorStore();
     renderSectorComparison();
+    renderWatchList();
   };
   reader.onerror = ()=>{ alert('ફાઈલ વાંચવામાં ભૂલ થઈ.'); };
   reader.readAsText(file);
@@ -604,6 +612,7 @@ clearSectorBtn.addEventListener('click', ()=>{
   sectorStore = {};
   saveSectorStore();
   renderSectorComparison();
+  renderWatchList();
 });
 
 function renderSectorComparison(){
@@ -702,6 +711,7 @@ bulkDealInput.addEventListener('change', (e)=>{
       bulkStore = rows;
       saveBulkStore();
       renderBulkDeals();
+      renderWatchList();
     }
     bulkDealInput.value = '';
   };
@@ -714,6 +724,7 @@ clearBulkBtn.addEventListener('click', ()=>{
   bulkStore = [];
   saveBulkStore();
   renderBulkDeals();
+  renderWatchList();
 });
 
 function renderBulkDeals(){
@@ -749,6 +760,99 @@ function renderBulkDeals(){
   wrap.innerHTML = html;
 }
 renderBulkDeals();
+
+// ---- Watch List: cross-reference strong sectors with bulk-deal buys ----
+// Approximate major constituents per sector (general knowledge — not a live NSE feed;
+// index composition can change, so this is a helpful pointer, not an official list).
+const SECTOR_STOCKS = {
+  'NIFTY BANK': ['HDFCBANK','ICICIBANK','SBIN','KOTAKBANK','AXISBANK','INDUSINDBK','BANKBARODA','PNB','IDFCFIRSTB','AUBANK'],
+  'NIFTY PRIVATE BANK': ['HDFCBANK','ICICIBANK','KOTAKBANK','AXISBANK','INDUSINDBK','IDFCFIRSTB','FEDERALBNK','RBLBANK','BANDHANBNK','YESBANK'],
+  'NIFTY PSU BANK': ['SBIN','BANKBARODA','PNB','CANBK','UNIONBANK','INDIANB','BANKINDIA','IOB','CENTRALBK','UCOBANK'],
+  'NIFTY FINANCIAL SERVICES': ['HDFCBANK','ICICIBANK','SBIN','KOTAKBANK','AXISBANK','BAJFINANCE','BAJAJFINSV','HDFCLIFE','SBILIFE','SHRIRAMFIN'],
+  'NIFTY AUTO': ['MARUTI','TATAMOTORS','M&M','BAJAJ-AUTO','EICHERMOT','HEROMOTOCO','TVSMOTOR','ASHOKLEY','BHARATFORG','MRF'],
+  'NIFTY FMCG': ['HINDUNILVR','ITC','NESTLEIND','BRITANNIA','TATACONSUM','DABUR','GODREJCP','MARICO','COLPAL','UBL'],
+  'NIFTY IT': ['TCS','INFY','HCLTECH','WIPRO','TECHM','LTIM','PERSISTENT','COFORGE','MPHASIS','LTTS'],
+  'NIFTY MEDIA': ['ZEEL','SUNTV','PVRINOX','NETWORK18','TV18BRDCST','DISHTV','NAZARA','SAREGAMA'],
+  'NIFTY METAL': ['TATASTEEL','JSWSTEEL','HINDALCO','VEDL','JINDALSTEL','SAIL','NMDC','NATIONALUM','HINDZINC','APLAPOLLO'],
+  'NIFTY PHARMA': ['SUNPHARMA','DRREDDY','CIPLA','DIVISLAB','LUPIN','AUROPHARMA','TORNTPHARM','ALKEM','ZYDUSLIFE','BIOCON'],
+  'NIFTY HEALTHCARE INDEX': ['APOLLOHOSP','SUNPHARMA','DRREDDY','CIPLA','MAXHEALTH','FORTIS','DIVISLAB','LUPIN','AUROPHARMA','GLENMARK'],
+  'NIFTY REALTY': ['DLF','GODREJPROP','OBEROIRLTY','PHOENIXLTD','PRESTIGE','LODHA','BRIGADE','SOBHA','MAHLIFE','SUNTECK'],
+  'NIFTY CONSUMER DURABLES': ['TITAN','HAVELLS','VOLTAS','CROMPTON','DIXON','WHIRLPOOL','BLUESTARCO','VGUARD','KAJARIACER'],
+  'NIFTY OIL & GAS': ['RELIANCE','ONGC','IOC','BPCL','HPCL','GAIL','PETRONET','OIL','IGL','MGL'],
+  'NIFTY CHEMICALS': ['PIDILITIND','SRF','UPL','AARTIIND','DEEPAKNTR','TATACHEM','NAVINFLUOR','ATUL','VINATIORGA','GNFC'],
+  'NIFTY CEMENT': ['ULTRACEMCO','SHREECEM','AMBUJACEM','ACC','DALBHARAT','JKCEMENT','RAMCOCEM','HEIDELBERG','INDIACEM','JKLAKSHMI'],
+  'NIFTY COMMODITIES': ['RELIANCE','TATASTEEL','ONGC','HINDALCO','JSWSTEEL','VEDL','COALINDIA','NTPC','UPL','GRASIM'],
+  'NIFTY ENERGY': ['RELIANCE','NTPC','POWERGRID','ONGC','ADANIGREEN','TATAPOWER','ADANIPOWER','IOC','BPCL','GAIL'],
+  'NIFTY INFRASTRUCTURE': ['LT','ADANIPORTS','ULTRACEMCO','POWERGRID','NTPC','GRASIM','BHARTIARTL','ADANIENT','SIEMENS','IRB'],
+  'NIFTY SERVICES SECTOR': ['HDFCBANK','ICICIBANK','BHARTIARTL','SBIN','TCS','INFY','KOTAKBANK','AXISBANK']
+};
+
+function getStrongSectors(){
+  const morning = sectorStore.morning, midday = sectorStore.midday;
+  if(!morning || !midday) return [];
+  const strong = [];
+  Object.keys(midday).forEach(name=>{
+    const m = morning[name], d = midday[name];
+    if(m && d && d.pct >= m.pct){
+      strong.push({ name: name.toUpperCase(), mPct: m.pct, dPct: d.pct });
+    }
+  });
+  return strong;
+}
+
+function renderWatchList(){
+  const wrap = document.getElementById('watchListWrap');
+  const strongSectors = getStrongSectors();
+  const buys = (bulkStore||[]).filter(r=>/BUY|PURCHASE/i.test(r.type));
+
+  if(strongSectors.length === 0 || buys.length === 0){
+    wrap.innerHTML = '<p class="empty">Sector data (9:15+10:30 બંને) અને Bulk Deal Buy — બંને ઉમેરાય પછી અહીં watch list દેખાશે.</p>';
+    return;
+  }
+
+  const matches = [];
+  strongSectors.forEach(sec=>{
+    const stocks = SECTOR_STOCKS[sec.name];
+    if(!stocks) return;
+    buys.forEach(deal=>{
+      const dealSymbol = (deal.symbol||'').toUpperCase().trim();
+      if(stocks.includes(dealSymbol)){
+        matches.push({ symbol: dealSymbol, sector: sec.name, mPct: sec.mPct, dPct: sec.dPct, deal });
+      }
+    });
+  });
+
+  if(matches.length === 0){
+    wrap.innerHTML = '<p class="empty">અત્યારે કોઈ શેરમાં બંને signal (મજબૂત sector + bulk buy) ભેગા મળતા નથી.</p>';
+    return;
+  }
+
+  // de-duplicate same symbol+sector, keep largest qty
+  const seen = {};
+  matches.forEach(m=>{
+    const key = m.symbol+'|'+m.sector;
+    if(!seen[key] || (m.deal.qty||0) > (seen[key].deal.qty||0)) seen[key] = m;
+  });
+  const finalList = Object.values(seen).sort((a,b)=> b.dPct - a.dPct);
+
+  let html = '<table><thead><tr>' +
+    '<th style="text-align:left;">શેર</th>' +
+    '<th style="text-align:left;">Sector</th>' +
+    '<th>Sector %</th>' +
+    '<th style="text-align:left;">Bulk Deal</th>' +
+    '</tr></thead><tbody>';
+  finalList.forEach(m=>{
+    html += `<tr>
+      <td style="text-align:left; font-family:'JetBrains Mono',monospace; font-weight:600;">${m.symbol}</td>
+      <td style="text-align:left; font-family:'Noto Sans Gujarati',sans-serif; font-size:.78rem;">${m.sector}</td>
+      <td class="val pos">${fmt(m.dPct,2)}</td>
+      <td style="text-align:left; font-size:.76rem;">Buy ${m.deal.qty!==null?fmt(m.deal.qty,0):''} @ ${m.deal.price!==null?fmt(m.deal.price):'—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+renderWatchList();
 
 function deleteRow(idx){
   store.symbols[store.active].splice(idx,1);
