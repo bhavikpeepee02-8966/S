@@ -269,6 +269,17 @@
 
   <div id="part2View" style="display:none;">
 
+  <section class="panel" style="border-color:var(--warn);">
+    <h2>રોજનો ક્રમ (ક્યારે શું upload કરવું)</h2>
+    <div style="font-size:.85rem; line-height:1.8;">
+      <div><b style="color:var(--warn);">ગઈકાલે સાંજે 5-6 વાગ્યે</b> → Bulk Deal CSV upload (market બંધ પછી, પૂરો દિવસ)</div>
+      <div><b style="color:var(--accent);">આજે સવારે 9:15</b> → Sector CSV → "9:15 નું CSV" માં upload</div>
+      <div><b style="color:var(--accent);">આજે સવારે 10:30</b> → Sector CSV ફરી → "10:30 નું CSV" માં upload → વોચ લિસ્ટ જુઓ</div>
+      <div><b style="color:var(--warn);">આજે સાંજે 5-6 વાગ્યે</b> → આજનું Bulk Deal CSV upload (કાલ માટે) + "સેક્ટર ડેટા સાફ કરો" દબાવો</div>
+    </div>
+    <p class="hint" style="margin-top:10px;">Bulk deal ડેટા હંમેશા "ગઈકાલનું" જ હોય (સાંજે upload કરેલું) — sector ડેટા "આજનું" (9:15+10:30). વોચ લિસ્ટ બંનેને ભેગા કરીને બતાવે છે, એટલે "ગઈકાલે મોટા investor એ ખરીદેલા શેરમાં આજે momentum છે કે નહીં" ચેક થાય.</p>
+  </section>
+
   <section class="panel">
     <h2>સેક્ટર સંકેત (9:15 vs 10:30)</h2>
     <a class="nse-link" href="https://www.nseindia.com/market-data/live-market-indices" target="_blank" rel="noopener">NSE Live Market Indices પેજ ખોલો →</a>
@@ -297,6 +308,7 @@
     <h2>બલ્ક / બ્લોક ડીલ (મોટા રોકાણકારો)</h2>
     <a class="nse-link" href="https://www.nseindia.com/market-data/large-deals" target="_blank" rel="noopener">NSE Large Deals પેજ ખોલો →</a>
     <span class="field-label" style="margin-top:10px; display:block;">આજની Bulk/Block Deal CSV અપલોડ કરો — મોટા players કયા શેરમાં ખરીદી/વેચાણ કરે છે એ દેખાશે</span>
+    <p class="hint" style="margin-top:8px; color:var(--warn);">⏰ શ્રેષ્ઠ સમય: સાંજે 5-6 વાગ્યે (market બંધ થયા પછી) — 10:30 વાગ્યે ડાઉનલોડ કરેલી ફાઈલમાં ફક્ત morning ના block deals જ હોય, આખા દિવસનો ડેટા નહીં. સાચી રીતે વાપરવું હોય તો: આજનું bulk deal ડેટા સાંજે લો, ને બીજા દિવસે સવારના sector ડેટા સાથે compare કરો.</p>
     <div class="row" style="margin-top:8px;">
       <input type="file" id="bulkDealInput" accept=".csv,text/csv">
     </div>
