@@ -203,7 +203,7 @@
     </div>
 
     <div id="sectorResultsWrap" style="margin-top:12px;"></div>
-    <p class="hint" style="margin-top:10px;">"મજબૂત" = 9:15 થી 10:30 સુધીમાં gain ટકી રહ્યો/વધ્યો. "નબળો" = gain ઘટવા લાગ્યો. ફક્ત reference છે, ગેરંટી નથી.</p>
+    <p class="hint" style="margin-top:10px;">"મજબૂત" = 9:15 થી 10:30 સુધીમાં gain ટકી રહ્યો/વધ્યો. "નબળો" = gain ઘટવા લાગ્યો. NSE ના 139 index માંથી ફક્ત 19 ખરેખર ટ્રેડ કરવા લાયક sector જ બતાવાય છે (broad-market/strategy/bond indices hide કરેલા). ફક્ત reference છે, ગેરંટી નથી.</p>
   </section>
 
   <section class="panel">
@@ -511,6 +511,15 @@ function loadSectorStore(){
 function saveSectorStore(){ localStorage.setItem(SECTOR_KEY, JSON.stringify(sectorStore)); }
 let sectorStore = loadSectorStore();
 
+// Only these are real tradeable sectors — filters out broad-market, strategy, and bond indices
+const SECTOR_WHITELIST = [
+  'NIFTY BANK','NIFTY AUTO','NIFTY FMCG','NIFTY IT','NIFTY MEDIA','NIFTY METAL',
+  'NIFTY PHARMA','NIFTY PSU BANK','NIFTY PRIVATE BANK','NIFTY REALTY',
+  'NIFTY OIL & GAS','NIFTY CHEMICALS','NIFTY CEMENT','NIFTY ENERGY',
+  'NIFTY HEALTHCARE INDEX','NIFTY FINANCIAL SERVICES','NIFTY CONSUMER DURABLES',
+  'NIFTY INFRASTRUCTURE','NIFTY COMMODITIES','NIFTY SERVICES SECTOR'
+];
+
 function parseSectorCSV(text){
   const allRows = parseCSVText(text);
   if(allRows.length === 0) return [];
@@ -531,6 +540,7 @@ function parseSectorCSV(text){
     const pct = cleanNum(cells[pctIdx]);
     const ltp = ltpIdx>=0 ? cleanNum(cells[ltpIdx]) : null;
     if(!name || isNaN(pct)) continue;
+    if(!SECTOR_WHITELIST.includes(name.toUpperCase())) continue;
     rows.push({name, pct, ltp});
   }
   return rows;
