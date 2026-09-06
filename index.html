@@ -1100,19 +1100,21 @@ function analyze(){
 
 function renderLevels(s){
   const grid = document.getElementById('levelsGrid');
-  const breakoutWatch = s.resistance;
+  const entryPrice = s.resistance;       // entry = breakout price
   const breakoutVol = s.avgVol*1.5;
-  const stopRef = s.support*0.98; // slightly below support
-  const target5 = s.last.close*1.05;
-  const target10 = s.last.close*1.10;
+  const stopLoss = s.support*0.98;       // slightly below support
+  const target5 = entryPrice*1.05;
+  const target10 = entryPrice*1.10;
   const breakdownWatch = s.support;
+  const riskPct = ((entryPrice - stopLoss)/entryPrice*100);
 
   grid.innerHTML = `
-    <div class="stat"><span class="k">Breakout watch price (ઉપર)</span><span class="v">${fmt(breakoutWatch)}</span></div>
+    <div class="stat"><span class="k">Entry (Breakout) ભાવ</span><span class="v">${fmt(entryPrice)}</span></div>
+    <div class="stat"><span class="k">Stop-loss (આ entry સાથે)</span><span class="v">${fmt(stopLoss)}</span></div>
     <div class="stat"><span class="k">જરૂરી વોલ્યુમ (breakout day)</span><span class="v">${fmt(breakoutVol,0)}</span></div>
-    <div class="stat"><span class="k">Target 5%</span><span class="v">${fmt(target5)}</span></div>
-    <div class="stat"><span class="k">Target 10%</span><span class="v">${fmt(target10)}</span></div>
-    <div class="stat"><span class="k">Stop-loss સંદર્ભ (સપોર્ટની નીચે)</span><span class="v">${fmt(stopRef)}</span></div>
+    <div class="stat"><span class="k">Risk (entry થી stop-loss)</span><span class="v">${fmt(riskPct,1)}%</span></div>
+    <div class="stat"><span class="k">Target 5% (entry થી)</span><span class="v">${fmt(target5)}</span></div>
+    <div class="stat"><span class="k">Target 10% (entry થી)</span><span class="v">${fmt(target10)}</span></div>
     <div class="stat"><span class="k">Breakdown watch price (નીચે)</span><span class="v">${fmt(breakdownWatch)}</span></div>
   `;
 }
@@ -1154,9 +1156,9 @@ function renderExplanation(score, s, data){
   }
 
   // 4. What's needed for breakout / breakdown with % targets
-  const upTarget5 = s.last.close*1.05, upTarget10 = s.last.close*1.10;
+  const upTarget5 = s.resistance*1.05, upTarget10 = s.resistance*1.10;
   const minVolNeeded = s.avgVol*1.5;
-  bullets.push(`<b>5-10% ટાર્ગેટ માટે વિચારવા જેવું:</b> જો ${res} ઉપર <b>સારા વોલ્યુમ સાથે</b> બંધ થાય, તો ${fmt(upTarget5)}-${fmt(upTarget10)} (5-10%) સુધીની ચાલ શક્ય બને — પણ એ "જો" પર છે, ગેરંટી નહીં.`);
+  bullets.push(`<b>5-10% ટાર્ગેટ (entry ${res} થી):</b> જો ${res} ઉપર <b>સારા વોલ્યુમ સાથે</b> બંધ થાય ને એ ભાવે entry લેવાય, તો ${fmt(upTarget5)}-${fmt(upTarget10)} (5-10%) સુધીની ચાલ શક્ય બને — પણ એ "જો" પર છે, ગેરંટી નહીં.`);
   bullets.push(`<b>વોલ્યુમ કન્ફર્મેશન:</b> સરેરાશ વોલ્યુમ ${fmt(s.avgVol,0)} છે, એટલે breakout day એ ઓછામાં ઓછું <b>~${fmt(minVolNeeded,0)}</b> (1.5×) વોલ્યુમ જોઈએ, તો જ confirm ગણાય — છેલ્લા દિવસનું વોલ્યુમ ${fmt(s.last.volume,0)} હતું.`);
 
   // 5. Risk of buying inside range
@@ -1393,10 +1395,17 @@ const logVolumeInput = document.getElementById('logVolumeInput');
 const logNoteInput = document.getElementById('logNoteInput');
 const addLogBtn = document.getElementById('addLogBtn');
 
+function cleanLogNum(s){
+  if(!s) return NaN;
+  // strip everything except digits, decimal point, and minus sign (handles ₹, commas, spaces, stray text)
+  const cleaned = String(s).replace(/[^\d.\-]/g,'');
+  return parseFloat(cleaned);
+}
+
 addLogBtn.addEventListener('click', ()=>{
   const symbol = logSymbolInput.value.trim().toUpperCase();
-  const price = parseFloat(logPriceInput.value.replace(/,/g,''));
-  const volume = parseFloat(logVolumeInput.value.replace(/,/g,''));
+  const price = cleanLogNum(logPriceInput.value);
+  const volume = cleanLogNum(logVolumeInput.value);
   const note = logNoteInput.value.trim();
   if(!symbol){ alert('શેરનું નામ નાખો.'); return; }
 
