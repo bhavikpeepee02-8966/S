@@ -315,6 +315,10 @@
     <div class="row" style="margin-top:10px;">
       <button id="clearBulkBtn" class="danger">આજનો ડેટા સાફ કરો</button>
     </div>
+    <div class="row" style="margin-top:12px;">
+      <input type="text" id="bulkSearchInput" placeholder="શેર/નામ/client શોધો...">
+      <input type="text" id="bulkMinQtyInput" placeholder="Min qty (દા.ત. 100000)" inputmode="numeric" style="max-width:150px;">
+    </div>
     <div id="bulkDealWrap" style="margin-top:12px;"></div>
     <p class="hint" style="margin-top:10px;">મોટા quantity/value ધરાવતા deals ઉપર sort થાય છે. Buy = ખરીદી (લીલો), Sell = વેચાણ (લાલ). ફક્ત reference — મોટા investor ખરીદે એટલે ભાવ વધશે જ એની ગેરંટી નથી.</p>
   </section>
@@ -767,24 +771,43 @@ function renderBulkDeals(){
   const wrap = document.getElementById('bulkDealWrap');
   if(!bulkStore || bulkStore.length === 0){ wrap.innerHTML = ''; return; }
 
-  const sorted = [...bulkStore].sort((a,b)=>{
+  const searchInput = document.getElementById('bulkSearchInput');
+  const minQtyInput = document.getElementById('bulkMinQtyInput');
+  const searchTerm = (searchInput.value || '').trim().toUpperCase();
+  const minQty = parseFloat((minQtyInput.value||'').replace(/,/g,'')) || 0;
+
+  let filtered = bulkStore.filter(r=>{
+    if(minQty > 0 && (r.qty||0) < minQty) return false;
+    if(searchTerm){
+      const hay = ((r.symbol||'')+' '+(r.name||'')+' '+(r.client||'')+' '+(r.type||'')).toUpperCase();
+      if(!hay.includes(searchTerm)) return false;
+    }
+    return true;
+  });
+
+  const sorted = filtered.sort((a,b)=>{
     const va = (a.qty||0) * (a.price||1);
     const vb = (b.qty||0) * (b.price||1);
     return vb - va;
   });
 
-  let html = '<table><thead><tr>' +
+  if(sorted.length === 0){
+    wrap.innerHTML = '<p class="empty">આ શોધ/filter સાથે કોઈ deal મળ્યો નહીં.</p>';
+    return;
+  }
+
+  let tableHtml = '<table><thead><tr>' +
     '<th style="text-align:left;">શેર</th>' +
     '<th style="text-align:left;">Client</th>' +
     '<th style="text-align:left;">Type</th>' +
     '<th>Qty</th>' +
     '<th>ભાવ</th>' +
     '</tr></thead><tbody>';
-  sorted.slice(0,100).forEach(r=>{
+  sorted.slice(0,200).forEach(r=>{
     const isBuy = /BUY|PURCHASE/i.test(r.type);
     const isSell = /SELL/i.test(r.type);
     const typeClass = isBuy ? 'val pos' : (isSell ? 'val neg' : 'val flat');
-    html += `<tr>
+    tableHtml += `<tr>
       <td style="text-align:left; font-family:'Noto Sans Gujarati',sans-serif;">${r.symbol||r.name}</td>
       <td style="text-align:left; font-size:.72rem; color:var(--text-muted);">${r.client||'—'}</td>
       <td style="text-align:left;" class="${typeClass}">${r.type||'—'}</td>
@@ -792,10 +815,16 @@ function renderBulkDeals(){
       <td>${r.price!==null?fmt(r.price):'—'}</td>
     </tr>`;
   });
-  html += '</tbody></table>';
-  wrap.innerHTML = html;
+  tableHtml += '</tbody></table>';
+
+  wrap.innerHTML = `<details><summary>Deal list જુઓ (${sorted.length} મળ્યા)</summary>${tableHtml}</details>`;
 }
 renderBulkDeals();
+
+const bulkSearchInput = document.getElementById('bulkSearchInput');
+const bulkMinQtyInput = document.getElementById('bulkMinQtyInput');
+bulkSearchInput.addEventListener('input', renderBulkDeals);
+bulkMinQtyInput.addEventListener('input', renderBulkDeals);
 
 // ---- Watch List: cross-reference strong sectors with bulk-deal buys ----
 // Approximate major constituents per sector (general knowledge — not a live NSE feed;
