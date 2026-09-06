@@ -170,9 +170,10 @@
     display:flex; gap:8px; padding:14px 14px 0;
   }
   .tab-btn{
-    flex:1; padding:11px 8px; font-size:.88rem; font-weight:600;
+    flex:1; padding:9px 4px; font-size:.72rem; font-weight:600;
     background:var(--surface); color:var(--text-muted);
     border:1px solid var(--border); border-radius:6px; cursor:pointer;
+    line-height:1.3;
   }
   .tab-btn.active{
     background:var(--accent-dim); color:var(--text); border-color:var(--accent);
@@ -194,6 +195,7 @@
   <div class="tabbar">
     <button id="tab1Btn" class="tab-btn active">ભાગ 1: શેર એનાલિસિસ</button>
     <button id="tab2Btn" class="tab-btn">ભાગ 2: સેક્ટર + બલ્ક ડીલ</button>
+    <button id="tab3Btn" class="tab-btn">ભાગ 3: ચેક લોગ</button>
   </div>
 
   <div id="part1View">
@@ -245,6 +247,7 @@
       <h2>સ્તર સંદર્ભ (Reference Levels)</h2>
       <div class="stats-grid" id="levelsGrid"></div>
       <p class="hint" style="margin-top:10px;">આ નંબરો ફક્ત તમારા ડેટા પરથી ગણેલા સંદર્ભ છે — ખરીદ/વેચાણની સલાહ નથી. પોતાનું જોખમ ને stop-loss જાતે નક્કી કરો.</p>
+      <p class="hint" style="margin-top:8px; color:var(--warn);">⚠️ "જરૂરી વોલ્યુમ" ચેક કરતી વખતે <b>Total Volume (કુલ traded)</b> જોવું — broker app ના Market Depth માં દેખાતું "Buy Qty"/"Total Buy Qty" નહીં (એ ફક્ત queue માં પડેલા orders છે, actual trade નહીં).</p>
     </div>
     <div class="panel" style="margin-top:12px;">
       <h2>સમજૂતી</h2>
@@ -328,6 +331,32 @@
     <span class="field-label">જે શેરના sector માં momentum "મજબૂત" હોય, ને એ જ શેરમાં bulk deal Buy પણ થયો હોય — એવા શેર અહીં આપોઆપ ભેગા થશે</span>
     <div id="watchListWrap" style="margin-top:12px;"></div>
     <p class="hint" style="margin-top:10px;">આ "કેટલા % ઉપર જશે" એની prediction નથી — ફક્ત "2 positive signal ભેગા મળ્યા" એ fact બતાવે છે. Sector ના stock-mapping સામાન્ય જાણકારી પરથી છે (NSE ના official/live constituent list સાથે 100% ના પણ મળે). નિર્ણય ને risk તમારો.</p>
+  </section>
+
+  </div>
+
+  <div id="part3View" style="display:none;">
+
+  <section class="panel">
+    <h2>ચેક લોગ</h2>
+    <span class="field-label">જ્યારે પણ કોઈ શેર broker app માં ચેક કરો (breakout price, volume), એ અહીં તારીખ સાથે નોંધી રાખો</span>
+
+    <div class="row" style="margin-top:10px;">
+      <input type="text" id="logSymbolInput" placeholder="શેરનું નામ (દા.ત. PATANJALI)">
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <input type="text" id="logPriceInput" placeholder="ભાવ ચેક કર્યો (દા.ત. 362.90)" inputmode="decimal">
+      <input type="text" id="logVolumeInput" placeholder="Total Volume (દા.ત. 4578222)" inputmode="numeric">
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <input type="text" id="logNoteInput" placeholder="નોંધ (વૈકલ્પિક) — દા.ત. resistance તૂટ્યું, વોલ્યુમ ઓછું">
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button id="addLogBtn">ઉમેરો</button>
+    </div>
+
+    <div id="checkLogWrap" style="margin-top:14px;"></div>
+    <p class="hint" style="margin-top:10px;">દરેક entry ની તારીખ ને સમય ઓટોમેટિક નોંધાય છે. આ ફક્ત તમારો personal journal છે — સમય જતાં pattern (કયા શેરમાં resistance તૂટ્યા પછી ખરેખર ચાલ્યું) જોવા માટે ઉપયોગી.</p>
   </section>
 
   </div>
@@ -1326,23 +1355,98 @@ if('serviceWorker' in navigator){
 // ---- Tab switcher: Part 1 (stock analysis) vs Part 2 (sector + bulk deal) ----
 const tab1Btn = document.getElementById('tab1Btn');
 const tab2Btn = document.getElementById('tab2Btn');
+const tab3Btn = document.getElementById('tab3Btn');
 const part1View = document.getElementById('part1View');
 const part2View = document.getElementById('part2View');
+const part3View = document.getElementById('part3View');
 
-tab1Btn.addEventListener('click', ()=>{
-  part1View.style.display = '';
-  part2View.style.display = 'none';
-  tab1Btn.classList.add('active');
-  tab2Btn.classList.remove('active');
+const allTabs = [
+  { btn: tab1Btn, view: part1View },
+  { btn: tab2Btn, view: part2View },
+  { btn: tab3Btn, view: part3View }
+];
+
+function switchTab(activeIdx){
+  allTabs.forEach((t,i)=>{
+    t.view.style.display = (i===activeIdx) ? '' : 'none';
+    t.btn.classList.toggle('active', i===activeIdx);
+  });
   window.scrollTo(0,0);
+}
+
+tab1Btn.addEventListener('click', ()=>switchTab(0));
+tab2Btn.addEventListener('click', ()=>switchTab(1));
+tab3Btn.addEventListener('click', ()=>switchTab(2));
+
+// ---- Check Log (Part 3) ----
+const CHECKLOG_KEY = 'checkLogV1';
+function loadCheckLog(){
+  try{ const raw = localStorage.getItem(CHECKLOG_KEY); return raw ? JSON.parse(raw) : []; }
+  catch(e){ return []; }
+}
+function saveCheckLog(){ localStorage.setItem(CHECKLOG_KEY, JSON.stringify(checkLog)); }
+let checkLog = loadCheckLog();
+
+const logSymbolInput = document.getElementById('logSymbolInput');
+const logPriceInput = document.getElementById('logPriceInput');
+const logVolumeInput = document.getElementById('logVolumeInput');
+const logNoteInput = document.getElementById('logNoteInput');
+const addLogBtn = document.getElementById('addLogBtn');
+
+addLogBtn.addEventListener('click', ()=>{
+  const symbol = logSymbolInput.value.trim().toUpperCase();
+  const price = parseFloat(logPriceInput.value.replace(/,/g,''));
+  const volume = parseFloat(logVolumeInput.value.replace(/,/g,''));
+  const note = logNoteInput.value.trim();
+  if(!symbol){ alert('શેરનું નામ નાખો.'); return; }
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+  const timeStr = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+
+  checkLog.unshift({
+    symbol, price: isNaN(price)?null:price, volume: isNaN(volume)?null:volume,
+    note, date: dateStr, time: timeStr
+  });
+  saveCheckLog();
+  logSymbolInput.value=''; logPriceInput.value=''; logVolumeInput.value=''; logNoteInput.value='';
+  renderCheckLog();
 });
-tab2Btn.addEventListener('click', ()=>{
-  part1View.style.display = 'none';
-  part2View.style.display = '';
-  tab2Btn.classList.add('active');
-  tab1Btn.classList.remove('active');
-  window.scrollTo(0,0);
-});
+
+function deleteLogEntry(idx){
+  checkLog.splice(idx,1);
+  saveCheckLog();
+  renderCheckLog();
+}
+
+function renderCheckLog(){
+  const wrap = document.getElementById('checkLogWrap');
+  if(checkLog.length === 0){
+    wrap.innerHTML = '<p class="empty">હજુ કોઈ entry નથી.</p>';
+    return;
+  }
+  let html = '<table><thead><tr>' +
+    '<th style="text-align:left;">તારીખ</th>' +
+    '<th style="text-align:left;">શેર</th>' +
+    '<th>ભાવ</th>' +
+    '<th>Volume</th>' +
+    '<th style="text-align:left;">નોંધ</th>' +
+    '<th></th>' +
+    '</tr></thead><tbody>';
+  checkLog.forEach((e,i)=>{
+    html += `<tr>
+      <td style="text-align:left; font-size:.72rem; color:var(--text-muted);">${e.date}<br>${e.time}</td>
+      <td style="text-align:left; font-weight:600;">${e.symbol}</td>
+      <td>${e.price!==null?fmt(e.price):'—'}</td>
+      <td>${e.volume!==null?fmt(e.volume,0):'—'}</td>
+      <td style="text-align:left; font-size:.76rem; font-family:'Noto Sans Gujarati',sans-serif;">${e.note||'—'}</td>
+      <td class="del"><span onclick="deleteLogEntry(${i})">✕</span></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+renderCheckLog();
 </script>
 </body>
 </html>
