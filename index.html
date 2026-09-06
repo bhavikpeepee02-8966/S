@@ -160,6 +160,12 @@
     font-size:.75rem; color:var(--text-muted); text-align:center; margin-top:26px; padding:0 10px;
   }
   .empty{color:var(--text-muted); font-size:.85rem; text-align:center; padding:20px 0;}
+  .nse-link{
+    display:inline-block; font-size:.82rem; color:var(--accent);
+    text-decoration:none; border:1px solid var(--accent-dim); border-radius:5px;
+    padding:7px 11px; background:rgba(79,168,160,0.08);
+  }
+  .nse-link:active{ filter:brightness(1.2); }
   .explain-text{
     font-size:.88rem; color:var(--text); line-height:1.7; margin:0;
   }
@@ -185,7 +191,8 @@
 
   <section class="panel">
     <h2>સેક્ટર સંકેત (9:15 vs 10:30)</h2>
-    <span class="field-label">NSE.com ના "Live Market Indices" પેજ પરથી CSV ડાઉનલોડ કરીને બે વાર અપલોડ કરો</span>
+    <a class="nse-link" href="https://www.nseindia.com/market-data/live-market-indices" target="_blank" rel="noopener">NSE Live Market Indices પેજ ખોલો →</a>
+    <span class="field-label" style="margin-top:10px; display:block;">ઉપરની લિંક પરથી CSV ડાઉનલોડ કરીને બે વાર અપલોડ કરો</span>
 
     <div class="row" style="margin-top:8px;">
       <div style="flex:1; min-width:150px;">
@@ -207,8 +214,9 @@
   </section>
 
   <section class="panel">
-    <h2>CSV ફાઈલ અપલોડ કરો</h2>
-    <span class="field-label">NSE.com પરથી ડાઉનલોડ કરેલી ફાઈલ સીધી અપલોડ કરો — શેરનું નામ ફાઈલ પરથી ઓટોમેટિક ઉમેરાશે</span>
+    <h2>CSV ફાઈલ અપલોડ કરો (શેરનો ડેટા)</h2>
+    <a class="nse-link" href="https://www.nseindia.com/get-quotes/equity" target="_blank" rel="noopener">NSE Get Quotes પેજ ખોલો (શેર શોધો → Historical Data) →</a>
+    <span class="field-label" style="margin-top:10px; display:block;">ડાઉનલોડ કરેલી ફાઈલ સીધી અપલોડ કરો — શેરનું નામ ફાઈલ પરથી ઓટોમેટિક ઉમેરાશે</span>
     <div class="row">
       <input type="file" id="csvFileInput" accept=".csv,text/csv">
     </div>
@@ -219,6 +227,19 @@
 
     <div id="tableWrap"></div>
   </section>
+
+  <section class="panel">
+    <h2>બલ્ક / બ્લોક ડીલ (મોટા રોકાણકારો)</h2>
+    <a class="nse-link" href="https://www.nseindia.com/market-data/large-deals" target="_blank" rel="noopener">NSE Large Deals પેજ ખોલો →</a>
+    <span class="field-label" style="margin-top:10px; display:block;">આજની Bulk/Block Deal CSV અપલોડ કરો — મોટા players કયા શેરમાં ખરીદી/વેચાણ કરે છે એ દેખાશે</span>
+    <div class="row" style="margin-top:8px;">
+      <input type="file" id="bulkDealInput" accept=".csv,text/csv">
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button id="clearBulkBtn" class="danger">આજનો ડેટા સાફ કરો</button>
+    </div>
+    <div id="bulkDealWrap" style="margin-top:12px;"></div>
+    <p class="hint" style="margin-top:10px;">મોટા quantity/value ધરાવતા deals ઉપર sort થાય છે. Buy = ખરીદી (લીલો), Sell = વેચાણ (લાલ). ફક્ત reference — મોટા investor ખરીદે એટલે ભાવ વધશે જ એની ગેરંટી નથી.</p>
   </section>
 
   <section class="panel" id="chartSection" style="display:none;">
@@ -621,6 +642,113 @@ function renderSectorComparison(){
   wrap.innerHTML = html;
 }
 renderSectorComparison();
+
+// ---- Bulk / Block Deal tracker ----
+const BULK_KEY = 'bulkDealTrackerV1';
+function loadBulkStore(){
+  try{ const raw = localStorage.getItem(BULK_KEY); return raw ? JSON.parse(raw) : []; }
+  catch(e){ return []; }
+}
+function saveBulkStore(){ localStorage.setItem(BULK_KEY, JSON.stringify(bulkStore)); }
+let bulkStore = loadBulkStore();
+
+function parseBulkDealCSV(text){
+  const allRows = parseCSVText(text);
+  if(allRows.length === 0) return null;
+  const header = allRows[0].map(c=>c.toUpperCase().replace(/\s+/g,''));
+
+  const symbolIdx = header.findIndex(h=>h.includes('SYMBOL'));
+  const nameIdx = header.findIndex(h=>h.includes('SECURITYNAME')||h.includes('SECURITY'));
+  const clientIdx = header.findIndex(h=>h.includes('CLIENT'));
+  const dealTypeIdx = header.findIndex(h=>h.includes('BUY/SELL')||h.includes('BUYSELL')||h.includes('DEALTYPE')||h==='TYPE');
+  const qtyIdx = header.findIndex(h=>h.includes('QUANTITY'));
+  const priceIdx = header.findIndex(h=>h.includes('PRICE'));
+  const dateIdx = header.findIndex(h=>h.includes('DATE'));
+
+  // Need at least a symbol/name column to make sense of the file
+  if(symbolIdx<0 && nameIdx<0) return null;
+
+  const rows = [];
+  for(let i=1;i<allRows.length;i++){
+    const cells = allRows[i];
+    if(cells.length < 2) continue;
+    const symbol = symbolIdx>=0 ? cells[symbolIdx] : (nameIdx>=0 ? cells[nameIdx] : '');
+    if(!symbol) continue;
+    rows.push({
+      symbol: symbol,
+      name: nameIdx>=0 ? cells[nameIdx] : '',
+      client: clientIdx>=0 ? cells[clientIdx] : '',
+      type: dealTypeIdx>=0 ? cells[dealTypeIdx] : '',
+      qty: qtyIdx>=0 ? cleanNum(cells[qtyIdx]) : null,
+      price: priceIdx>=0 ? cleanNum(cells[priceIdx]) : null,
+      date: dateIdx>=0 ? cells[dateIdx] : ''
+    });
+  }
+  return rows;
+}
+
+const bulkDealInput = document.getElementById('bulkDealInput');
+const clearBulkBtn = document.getElementById('clearBulkBtn');
+
+bulkDealInput.addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    const rows = parseBulkDealCSV(ev.target.result);
+    if(rows === null){
+      alert('CSV માંથી ડેટા વાંચી ના શકાયો. ફોર્મેટ ઓળખાયું નહીં — આ ફાઈલ Claude ને બતાવો, parser ઠીક કરી દેવાશે.');
+    } else {
+      bulkStore = rows;
+      saveBulkStore();
+      renderBulkDeals();
+    }
+    bulkDealInput.value = '';
+  };
+  reader.onerror = ()=>{ alert('ફાઈલ વાંચવામાં ભૂલ થઈ.'); bulkDealInput.value=''; };
+  reader.readAsText(file);
+});
+
+clearBulkBtn.addEventListener('click', ()=>{
+  if(!confirm('આજનો બલ્ક/બ્લોક ડીલ ડેટા સાફ કરવો છે?')) return;
+  bulkStore = [];
+  saveBulkStore();
+  renderBulkDeals();
+});
+
+function renderBulkDeals(){
+  const wrap = document.getElementById('bulkDealWrap');
+  if(!bulkStore || bulkStore.length === 0){ wrap.innerHTML = ''; return; }
+
+  const sorted = [...bulkStore].sort((a,b)=>{
+    const va = (a.qty||0) * (a.price||1);
+    const vb = (b.qty||0) * (b.price||1);
+    return vb - va;
+  });
+
+  let html = '<table><thead><tr>' +
+    '<th style="text-align:left;">શેર</th>' +
+    '<th style="text-align:left;">Client</th>' +
+    '<th style="text-align:left;">Type</th>' +
+    '<th>Qty</th>' +
+    '<th>ભાવ</th>' +
+    '</tr></thead><tbody>';
+  sorted.slice(0,100).forEach(r=>{
+    const isBuy = /BUY|PURCHASE/i.test(r.type);
+    const isSell = /SELL/i.test(r.type);
+    const typeClass = isBuy ? 'val pos' : (isSell ? 'val neg' : 'val flat');
+    html += `<tr>
+      <td style="text-align:left; font-family:'Noto Sans Gujarati',sans-serif;">${r.symbol||r.name}</td>
+      <td style="text-align:left; font-size:.72rem; color:var(--text-muted);">${r.client||'—'}</td>
+      <td style="text-align:left;" class="${typeClass}">${r.type||'—'}</td>
+      <td>${r.qty!==null?fmt(r.qty,0):'—'}</td>
+      <td>${r.price!==null?fmt(r.price):'—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+renderBulkDeals();
 
 function deleteRow(idx){
   store.symbols[store.active].splice(idx,1);
