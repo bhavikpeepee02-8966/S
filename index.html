@@ -292,10 +292,12 @@
       <div style="flex:1; min-width:150px;">
         <span class="field-label">9:15 નું CSV</span>
         <input type="file" id="sectorMorningInput" accept=".csv,text/csv">
+        <p class="hint" id="sectorMorningStamp" style="margin-top:4px; font-size:.72rem;"></p>
       </div>
       <div style="flex:1; min-width:150px;">
         <span class="field-label">10:30 નું CSV</span>
         <input type="file" id="sectorMiddayInput" accept=".csv,text/csv">
+        <p class="hint" id="sectorMiddayStamp" style="margin-top:4px; font-size:.72rem;"></p>
       </div>
     </div>
 
@@ -315,6 +317,7 @@
     <div class="row" style="margin-top:8px;">
       <input type="file" id="bulkDealInput" accept=".csv,text/csv">
     </div>
+    <p class="hint" id="bulkStamp" style="margin-top:6px; font-size:.72rem;"></p>
     <div class="row" style="margin-top:10px;">
       <button id="clearBulkBtn" class="danger">આજનો ડેટા સાફ કરો</button>
     </div>
@@ -465,6 +468,13 @@ const csvFileInput = document.getElementById('csvFileInput');
 const csvHint = document.getElementById('csvHint');
 const MONTH_MAP = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
 
+function nowStamp(){
+  const now = new Date();
+  const d = now.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+  const t = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+  return `${d}, ${t}`;
+}
+
 // Robust CSV tokenizer: parses the WHOLE text at once, respecting quotes —
 // including quoted fields that contain embedded newlines or commas (NSE headers do this).
 function parseCSVText(text){
@@ -588,7 +598,8 @@ csvFileInput.addEventListener('change', (e)=>{
       store.active = symbol;
       mergeRows(rows);
       renderSymbolSelect();
-      csvHint.textContent = `${symbol} — ${rows.length} દિવસનો ડેટા ઉમેરાયો.`;
+      const lastDate = rows[rows.length-1].date;
+      csvHint.innerHTML = `<b>${symbol}</b> — ${rows.length} દિવસનો ડેટા (છેલ્લી તારીખ: ${lastDate}). <span style="color:var(--text-muted);">Upload કર્યું: ${nowStamp()}</span>`;
       renderAll();
     }
     csvFileInput.value = '';
@@ -654,13 +665,23 @@ function handleSectorUpload(file, slot){
     const map = {};
     rows.forEach(r=>{ map[r.name] = r; });
     sectorStore[slot] = map;
+    sectorStore[slot+'Stamp'] = nowStamp();
     saveSectorStore();
     renderSectorComparison();
     renderWatchList();
+    renderSectorStamps();
   };
   reader.onerror = ()=>{ alert('ફાઈલ વાંચવામાં ભૂલ થઈ.'); };
   reader.readAsText(file);
 }
+
+function renderSectorStamps(){
+  const mEl = document.getElementById('sectorMorningStamp');
+  const dEl = document.getElementById('sectorMiddayStamp');
+  mEl.textContent = sectorStore.morningStamp ? `Upload કર્યું: ${sectorStore.morningStamp}` : '';
+  dEl.textContent = sectorStore.middayStamp ? `Upload કર્યું: ${sectorStore.middayStamp}` : '';
+}
+renderSectorStamps();
 
 const sectorMorningInput = document.getElementById('sectorMorningInput');
 const sectorMiddayInput = document.getElementById('sectorMiddayInput');
@@ -682,6 +703,7 @@ clearSectorBtn.addEventListener('click', ()=>{
   saveSectorStore();
   renderSectorComparison();
   renderWatchList();
+  renderSectorStamps();
 });
 
 function renderSectorComparison(){
@@ -779,8 +801,12 @@ bulkDealInput.addEventListener('change', (e)=>{
     } else {
       bulkStore = rows;
       saveBulkStore();
+      const dataDates = [...new Set(rows.map(r=>r.date).filter(Boolean))];
+      const dataDateLabel = dataDates.length ? dataDates.join(', ') : 'ખબર નથી';
+      localStorage.setItem('bulkStampV1', JSON.stringify({dataDate: dataDateLabel, uploadedAt: nowStamp()}));
       renderBulkDeals();
       renderWatchList();
+      renderBulkStamp();
     }
     bulkDealInput.value = '';
   };
@@ -788,12 +814,25 @@ bulkDealInput.addEventListener('change', (e)=>{
   reader.readAsText(file);
 });
 
+function renderBulkStamp(){
+  const el = document.getElementById('bulkStamp');
+  try{
+    const raw = localStorage.getItem('bulkStampV1');
+    if(!raw){ el.textContent=''; return; }
+    const s = JSON.parse(raw);
+    el.innerHTML = `<b>ડેટા તારીખ:</b> ${s.dataDate} &nbsp; <span style="color:var(--text-muted);">Upload કર્યું: ${s.uploadedAt}</span>`;
+  }catch(e){ el.textContent=''; }
+}
+renderBulkStamp();
+
 clearBulkBtn.addEventListener('click', ()=>{
   if(!confirm('આજનો બલ્ક/બ્લોક ડીલ ડેટા સાફ કરવો છે?')) return;
   bulkStore = [];
   saveBulkStore();
+  localStorage.removeItem('bulkStampV1');
   renderBulkDeals();
   renderWatchList();
+  renderBulkStamp();
 });
 
 function renderBulkDeals(){
