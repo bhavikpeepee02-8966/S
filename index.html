@@ -739,7 +739,7 @@ function parseBulkDealCSV(text){
   const nameIdx = header.findIndex(h=>h.includes('SECURITYNAME')||h.includes('SECURITY'));
   const clientIdx = header.findIndex(h=>h.includes('CLIENT'));
   const dealTypeIdx = header.findIndex(h=>h.includes('BUY/SELL')||h.includes('BUYSELL')||h.includes('DEALTYPE')||h==='TYPE');
-  const qtyIdx = header.findIndex(h=>h.includes('QUANTITY'));
+  const qtyIdx = header.findIndex(h=>h.includes('QUANTITY')||h.includes('VOLUME'));
   const priceIdx = header.findIndex(h=>h.includes('PRICE'));
   const dateIdx = header.findIndex(h=>h.includes('DATE'));
 
