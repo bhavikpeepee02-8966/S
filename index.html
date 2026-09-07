@@ -250,7 +250,10 @@
     </div>
     <div class="panel" style="margin-top:12px;">
       <h2>સ્તર સંદર્ભ (Reference Levels)</h2>
+      <p class="field-label" style="margin-bottom:6px;">બ્રેકઆઉટ Entry — resistance તૂટે ત્યારે (સલામત, મોડું entry)</p>
       <div class="stats-grid" id="levelsGrid"></div>
+      <p class="field-label" style="margin:16px 0 6px;">Support/Dip Entry — હાલ support નજીક જ (વહેલું entry, risk વધારે)</p>
+      <div class="stats-grid" id="dipLevelsGrid"></div>
       <p class="hint" style="margin-top:10px;">આ નંબરો ફક્ત તમારા ડેટા પરથી ગણેલા સંદર્ભ છે — ખરીદ/વેચાણની સલાહ નથી. પોતાનું જોખમ ને stop-loss જાતે નક્કી કરો.</p>
       <p class="hint" style="margin-top:8px; color:var(--warn);">⚠️ "જરૂરી વોલ્યુમ" ચેક કરતી વખતે <b>Total Volume (કુલ traded)</b> જોવું — broker app ના Market Depth માં દેખાતું "Buy Qty"/"Total Buy Qty" નહીં (એ ફક્ત queue માં પડેલા orders છે, actual trade નહીં).</p>
     </div>
@@ -1205,6 +1208,27 @@ function renderLevels(s){
     <div class="stat"><span class="k">Target 5% (entry થી)</span><span class="v">${fmt(target5)}</span></div>
     <div class="stat"><span class="k">Target 10% (entry થી)</span><span class="v">${fmt(target10)}</span></div>
     <div class="stat"><span class="k">Breakdown watch price (નીચે)</span><span class="v">${fmt(breakdownWatch)}</span></div>
+  `;
+
+  // Support/Dip entry — buy near support instead of waiting for a breakout
+  // (Telegram-tip style). Entry = current price if it's already near/below
+  // support, else the support level itself.
+  const dipGrid = document.getElementById('dipLevelsGrid');
+  const nearOrBelowSupport = s.last.close <= s.support*1.02;
+  const dipEntry = nearOrBelowSupport ? s.last.close : s.support;
+  const dipStopLoss = s.support*0.95;    // wider cushion since support may break
+  const dipRiskPct = ((dipEntry - dipStopLoss)/dipEntry*100);
+  const dipTarget5 = dipEntry*1.05;
+  const dipTarget10 = dipEntry*1.10;
+  const dipTargetResistance = s.resistance;
+
+  dipGrid.innerHTML = `
+    <div class="stat"><span class="k">Entry (Support/Dip) ભાવ</span><span class="v">${fmt(dipEntry)}</span></div>
+    <div class="stat"><span class="k">Stop-loss (support તૂટે તો)</span><span class="v">${fmt(dipStopLoss)}</span></div>
+    <div class="stat"><span class="k">Risk (entry થી stop-loss)</span><span class="v">${fmt(dipRiskPct,1)}%</span></div>
+    <div class="stat"><span class="k">Target 5% (entry થી)</span><span class="v">${fmt(dipTarget5)}</span></div>
+    <div class="stat"><span class="k">Target 10% (entry થી)</span><span class="v">${fmt(dipTarget10)}</span></div>
+    <div class="stat"><span class="k">Target — રેઝિસ્ટન્સ સુધી</span><span class="v">${fmt(dipTargetResistance)}</span></div>
   `;
 }
 
