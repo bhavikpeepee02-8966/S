@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gujarati:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root{
     --bg:#12161B;
@@ -167,10 +168,10 @@
   }
   .nse-link:active{ filter:brightness(1.2); }
   .tabbar{
-    display:flex; gap:8px; padding:14px 14px 0;
+    display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:14px 14px 0;
   }
   .tab-btn{
-    flex:1; padding:9px 4px; font-size:.72rem; font-weight:600;
+    flex:1; padding:10px 6px; font-size:.78rem; font-weight:600;
     background:var(--surface); color:var(--text-muted);
     border:1px solid var(--border); border-radius:6px; cursor:pointer;
     line-height:1.3;
@@ -196,6 +197,7 @@
     <button id="tab1Btn" class="tab-btn active">ભાગ 1: શેર એનાલિસિસ</button>
     <button id="tab2Btn" class="tab-btn">ભાગ 2: સેક્ટર + બલ્ક ડીલ</button>
     <button id="tab3Btn" class="tab-btn">ભાગ 3: ચેક લોગ</button>
+    <button id="tab4Btn" class="tab-btn">ભાગ 4: સ્ક્રીનર</button>
   </div>
 
   <div id="part1View">
@@ -368,6 +370,38 @@
 
     <div id="checkLogWrap" style="margin-top:14px;"></div>
     <p class="hint" style="margin-top:10px;">દરેક entry ની તારીખ ને સમય ઓટોમેટિક નોંધાય છે. આ ફક્ત તમારો personal journal છે — સમય જતાં pattern (કયા શેરમાં resistance તૂટ્યા પછી ખરેખર ચાલ્યું) જોવા માટે ઉપયોગી.</p>
+  </section>
+
+  </div>
+
+  <div id="part4View" style="display:none;">
+
+  <section class="panel">
+    <h2>Bhavcopy Upload (બધા શેર)</h2>
+    <span class="field-label">NSE Archives → "CM-UDiFF Common Bhavcopy Final(zip)" — ZIP કે અંદરની CSV, બંને ચાલશે. ઘણી ફાઈલો એકસાથે પસંદ કરી શકાય.</span>
+    <div class="row" style="margin-top:8px;">
+      <input type="file" id="bhavFileInput" accept=".csv,.zip,text/csv,application/zip" multiple>
+    </div>
+    <p class="hint" id="bhavUploadStatus" style="margin-top:8px;"></p>
+    <div class="row" style="margin-top:10px;">
+      <button id="clearBhavBtn" class="danger">બધો Bhavcopy ડેટા સાફ કરો</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>કયા દિવસો ભરેલા છે</h2>
+    <span class="field-label">Trading days ના ક્રમમાં — ⚠️ ચિહ્નવાળો દિવસ ખૂટે છે (upload કરવાનું ભૂલાયું)</span>
+    <div id="bhavCoverageWrap" style="margin-top:12px;"></div>
+  </section>
+
+  <section class="panel">
+    <h2>સ્ક્રીનર — Entry Ready શેર</h2>
+    <span class="field-label">બધા upload કરેલા શેરમાંથી, breakout/dip entry ના rule પ્રમાણે જે "તૈયાર" દેખાય એ અહીં</span>
+    <div class="row" style="margin-top:10px;">
+      <button id="runScreenerBtn">સ્ક્રીન કરો</button>
+    </div>
+    <div id="screenerWrap" style="margin-top:12px;"></div>
+    <p class="hint" style="margin-top:10px;">ઓછામાં ઓછા 20 દિવસનો ડેટા હોય એવા શેર જ ગણાય છે. આ સ્કોર-આધારિત યાદી છે — ખરીદ સલાહ નથી, પોતાનું સંશોધન કરવું.</p>
   </section>
 
   </div>
@@ -1462,14 +1496,17 @@ if('serviceWorker' in navigator){
 const tab1Btn = document.getElementById('tab1Btn');
 const tab2Btn = document.getElementById('tab2Btn');
 const tab3Btn = document.getElementById('tab3Btn');
+const tab4Btn = document.getElementById('tab4Btn');
 const part1View = document.getElementById('part1View');
 const part2View = document.getElementById('part2View');
 const part3View = document.getElementById('part3View');
+const part4View = document.getElementById('part4View');
 
 const allTabs = [
   { btn: tab1Btn, view: part1View },
   { btn: tab2Btn, view: part2View },
-  { btn: tab3Btn, view: part3View }
+  { btn: tab3Btn, view: part3View },
+  { btn: tab4Btn, view: part4View }
 ];
 
 function switchTab(activeIdx){
@@ -1483,6 +1520,7 @@ function switchTab(activeIdx){
 tab1Btn.addEventListener('click', ()=>switchTab(0));
 tab2Btn.addEventListener('click', ()=>switchTab(1));
 tab3Btn.addEventListener('click', ()=>switchTab(2));
+tab4Btn.addEventListener('click', ()=>switchTab(3));
 
 // ---- Check Log (Part 3) ----
 const CHECKLOG_KEY = 'checkLogV1';
@@ -1560,6 +1598,267 @@ function renderCheckLog(){
   wrap.innerHTML = html;
 }
 renderCheckLog();
+
+// ============ Part 4: Bhavcopy Screener ============
+const BHAV_KEY = 'bhavStoreV1';       // { SYMBOL: [[date,o,h,l,c,v], ...] }
+const BHAV_DATES_KEY = 'bhavDatesV1'; // ["2026-08-01", "2026-08-02", ...]
+const BHAV_ROLLING_DAYS = 35;         // cap per-symbol history to bound storage size
+
+function loadBhavStore(){
+  try{ const raw = localStorage.getItem(BHAV_KEY); return raw ? JSON.parse(raw) : {}; }
+  catch(e){ return {}; }
+}
+function loadBhavDates(){
+  try{ const raw = localStorage.getItem(BHAV_DATES_KEY); return raw ? JSON.parse(raw) : []; }
+  catch(e){ return []; }
+}
+let bhavStore = loadBhavStore();
+let bhavDates = loadBhavDates(); // sorted unique array of "YYYY-MM-DD"
+
+function saveBhavStore(){
+  try{
+    localStorage.setItem(BHAV_KEY, JSON.stringify(bhavStore));
+    localStorage.setItem(BHAV_DATES_KEY, JSON.stringify(bhavDates));
+    return true;
+  }catch(e){
+    alert('Storage ભરાઈ ગયું છે (બહુ બધા દિવસનો ડેટા) — જૂનો ડેટા સાફ કરો અથવા ઓછા દિવસ રાખો.');
+    return false;
+  }
+}
+
+// Parse one bhavcopy CSV's text -> array of {date, symbol, open, high, low, close, volume} (EQ series only)
+function parseBhavcopyCSV(text){
+  const allRows = parseCSVText(text);
+  if(allRows.length === 0) return [];
+  const header = allRows[0].map(c=>c.trim());
+  const idx = (name)=>header.indexOf(name);
+  const iDate = idx('TradDt');
+  const iSymbol = idx('TckrSymb');
+  const iSeries = idx('SctySrs');
+  const iOpen = idx('OpnPric');
+  const iHigh = idx('HghPric');
+  const iLow = idx('LwPric');
+  const iClose = idx('ClsPric');
+  const iVol = idx('TtlTradgVol');
+  if(iDate<0 || iSymbol<0 || iSeries<0 || iOpen<0){
+    return null; // unrecognized format
+  }
+  const out = [];
+  for(let i=1;i<allRows.length;i++){
+    const r = allRows[i];
+    if(r.length <= Math.max(iDate,iSymbol,iSeries,iClose,iVol)) continue;
+    if(r[iSeries] !== 'EQ') continue; // only plain equity, skip bonds/SME/etc.
+    const open = parseFloat(r[iOpen]), high = parseFloat(r[iHigh]), low = parseFloat(r[iLow]), close = parseFloat(r[iClose]);
+    const vol = parseFloat(r[iVol]);
+    if(isNaN(open)||isNaN(high)||isNaN(low)||isNaN(close)) continue;
+    out.push({ date: r[iDate], symbol: r[iSymbol], open, high, low, close, volume: isNaN(vol)?0:vol });
+  }
+  return out;
+}
+
+function mergeBhavRows(rows){
+  const datesSeen = new Set(bhavDates);
+  rows.forEach(r=>{
+    if(!bhavStore[r.symbol]) bhavStore[r.symbol] = [];
+    const arr = bhavStore[r.symbol];
+    const existingIdx = arr.findIndex(row=>row[0]===r.date);
+    const rec = [r.date, r.open, r.high, r.low, r.close, r.volume];
+    if(existingIdx>=0) arr[existingIdx] = rec; else arr.push(rec);
+    datesSeen.add(r.date);
+  });
+  // sort each symbol's rows by date and trim to rolling window
+  Object.keys(bhavStore).forEach(sym=>{
+    bhavStore[sym].sort((a,b)=> a[0]<b[0]?-1:(a[0]>b[0]?1:0));
+    if(bhavStore[sym].length > BHAV_ROLLING_DAYS){
+      bhavStore[sym] = bhavStore[sym].slice(bhavStore[sym].length - BHAV_ROLLING_DAYS);
+    }
+  });
+  bhavDates = Array.from(datesSeen).sort();
+}
+
+async function extractCSVFromFile(file){
+  if(/\.zip$/i.test(file.name)){
+    const buf = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(buf);
+    const csvEntry = Object.values(zip.files).find(f=>/\.csv$/i.test(f.name) && !f.dir);
+    if(!csvEntry) throw new Error('ZIP માં CSV ફાઈલ ના મળી');
+    return await csvEntry.async('string');
+  } else {
+    return await file.text();
+  }
+}
+
+const bhavFileInput = document.getElementById('bhavFileInput');
+const bhavUploadStatus = document.getElementById('bhavUploadStatus');
+const clearBhavBtn = document.getElementById('clearBhavBtn');
+
+bhavFileInput.addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files || []);
+  if(files.length === 0) return;
+  let totalRows = 0, failedFiles = [];
+
+  for(let i=0;i<files.length;i++){
+    bhavUploadStatus.textContent = `Processing ${i+1}/${files.length}: ${files[i].name} ...`;
+    try{
+      const text = await extractCSVFromFile(files[i]);
+      const rows = parseBhavcopyCSV(text);
+      if(rows === null || rows.length === 0){
+        failedFiles.push(files[i].name);
+        continue;
+      }
+      mergeBhavRows(rows);
+      totalRows += rows.length;
+    }catch(err){
+      failedFiles.push(files[i].name + ' (' + err.message + ')');
+    }
+  }
+
+  const saved = saveBhavStore();
+  renderBhavCoverage();
+
+  let statusMsg = `${files.length} ફાઈલ પ્રોસેસ થઈ, કુલ ${totalRows} rows ઉમેરાયા (${bhavDates.length} દિવસ, ${Object.keys(bhavStore).length} શેર).`;
+  if(failedFiles.length) statusMsg += ` ⚠️ ${failedFiles.length} ફાઈલ ના વંચાઈ: ${failedFiles.join(', ')}`;
+  if(!saved) statusMsg += ' ⚠️ Storage ભરાયેલું — છેલ્લો ડેટા સેવ ના થયો.';
+  bhavUploadStatus.textContent = statusMsg;
+  bhavFileInput.value = '';
+});
+
+clearBhavBtn.addEventListener('click', ()=>{
+  if(!confirm('બધો Bhavcopy ડેટા (બધા શેર, બધા દિવસ) સાફ કરવો છે?')) return;
+  bhavStore = {};
+  bhavDates = [];
+  saveBhavStore();
+  renderBhavCoverage();
+  document.getElementById('screenerWrap').innerHTML = '';
+  bhavUploadStatus.textContent = '';
+});
+
+function isWeekday(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  const day = d.getDay(); // 0=Sun, 6=Sat
+  return day !== 0 && day !== 6;
+}
+
+function renderBhavCoverage(){
+  const wrap = document.getElementById('bhavCoverageWrap');
+  if(bhavDates.length === 0){
+    wrap.innerHTML = '<p class="empty">હજુ કોઈ bhavcopy ડેટા નથી.</p>';
+    return;
+  }
+  const sorted = [...bhavDates].sort();
+  const minD = new Date(sorted[0]+'T00:00:00');
+  const maxD = new Date(sorted[sorted.length-1]+'T00:00:00');
+  const haveSet = new Set(sorted);
+
+  // build full weekday range from min to max, flag ones missing from haveSet
+  const allExpected = [];
+  for(let d=new Date(minD); d<=maxD; d.setDate(d.getDate()+1)){
+    const iso = d.toISOString().slice(0,10);
+    if(isWeekday(iso)) allExpected.push(iso);
+  }
+  const missing = allExpected.filter(d=>!haveSet.has(d));
+
+  let html = `<p class="hint" style="margin-bottom:10px;">કુલ ${sorted.length} દિવસનો ડેટા છે (${sorted[0]} થી ${sorted[sorted.length-1]})</p>`;
+  if(missing.length > 0){
+    html += `<p class="hint" style="color:var(--bear); margin-bottom:10px;">⚠️ ${missing.length} દિવસ ખૂટે છે (weekday હોવા છતાં ડેટા નથી — NSE holiday પણ હોઈ શકે): ${missing.join(', ')}</p>`;
+  } else {
+    html += `<p class="hint" style="color:var(--bull); margin-bottom:10px;">✅ બધા weekday ભરેલા છે (વચ્ચે gap નથી)</p>`;
+  }
+  html += '<details><summary>બધી તારીખો જુઓ</summary><div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;">';
+  sorted.forEach(d=>{
+    html += `<span class="mono" style="font-size:.72rem; background:var(--surface-2); border:1px solid var(--border); border-radius:4px; padding:3px 7px;">${d}</span>`;
+  });
+  html += '</div></details>';
+  wrap.innerHTML = html;
+}
+renderBhavCoverage();
+
+// Pure scoring function mirroring the main breakout rules, for one symbol's row array
+function computeBhavSignal(rows){
+  // rows: sorted ascending, each [date,open,high,low,close,volume]
+  const n = rows.length;
+  if(n < 20) return null;
+  const closes = rows.map(r=>r[4]);
+  const highs = rows.map(r=>r[2]);
+  const lows = rows.map(r=>r[3]);
+  const vols = rows.map(r=>r[5]);
+  const lastIdx = n-1;
+  const last = rows[lastIdx];
+
+  const lookback = Math.min(20, n-1);
+  const windowHighs = highs.slice(Math.max(0,n-1-lookback), n-1);
+  const windowLows = lows.slice(Math.max(0,n-1-lookback), n-1);
+  const resistance = windowHighs.length ? Math.max(...windowHighs) : last[2];
+  const support = windowLows.length ? Math.min(...windowLows) : last[3];
+
+  function smaAt(period, endIdx){
+    if(endIdx+1 < period) return null;
+    let sum=0; for(let i=endIdx-period+1;i<=endIdx;i++) sum+=closes[i];
+    return sum/period;
+  }
+  const ma5 = smaAt(5,lastIdx), ma20 = smaAt(20,lastIdx);
+
+  const volWindow = vols.slice(Math.max(0,n-1-20), n-1);
+  const avgVol = volWindow.length ? volWindow.reduce((a,b)=>a+b,0)/volWindow.length : last[5];
+
+  let score = 0;
+  const lastClose = last[4], lastVol = last[5];
+
+  if(lastClose > resistance) score += 2;
+  else if(lastClose >= resistance*0.98) score += 1;
+  else if(lastClose < support) score -= 2;
+  else if(lastClose <= support*1.02) score -= 1;
+
+  if(avgVol>0){
+    const volRatio = lastVol/avgVol;
+    if(volRatio >= 1.5 && score>0) score += 1;
+    else if(volRatio >= 1.5 && score<0) score -= 1;
+  }
+
+  if(ma5 && ma20){ if(ma5>ma20) score += 1; else score -= 1; }
+
+  return { symbol: null, score, resistance, support, lastClose, ma5, ma20, avgVol, lastVol, days: n };
+}
+
+const runScreenerBtn = document.getElementById('runScreenerBtn');
+runScreenerBtn.addEventListener('click', ()=>{
+  const wrap = document.getElementById('screenerWrap');
+  wrap.innerHTML = '<p class="empty">Screening ચાલુ છે...</p>';
+
+  setTimeout(()=>{ // let the "screening..." message paint before the heavy loop
+    const symbols = Object.keys(bhavStore);
+    const results = [];
+    symbols.forEach(sym=>{
+      const sig = computeBhavSignal(bhavStore[sym]);
+      if(sig){ sig.symbol = sym; results.push(sig); }
+    });
+
+    const ready = results.filter(r=>r.score >= 1).sort((a,b)=>b.score-a.score);
+
+    if(symbols.length === 0){
+      wrap.innerHTML = '<p class="empty">પહેલા Bhavcopy ફાઈલો upload કરો.</p>';
+      return;
+    }
+    if(ready.length === 0){
+      wrap.innerHTML = `<p class="empty">${symbols.length} શેર ચેક કર્યા (ઓછામાં ઓછા 20 દિવસના ડેટાવાળા) — અત્યારે કોઈ સ્પષ્ટ entry-ready સિગ્નલ મળ્યો નહીં.</p>`;
+      return;
+    }
+
+    let html = `<p class="hint" style="margin-bottom:10px;">${symbols.length} શેર ચેક કર્યા — ${ready.length} entry-ready મળ્યા:</p>`;
+    html += '<table><thead><tr><th style="text-align:left;">શેર</th><th>સ્કોર</th><th>ભાવ</th><th>Resistance</th><th>Support</th></tr></thead><tbody>';
+    ready.slice(0,100).forEach(r=>{
+      html += `<tr>
+        <td style="text-align:left; font-weight:600;">${r.symbol}</td>
+        <td class="val pos">+${fmt(r.score,1)}</td>
+        <td>${fmt(r.lastClose)}</td>
+        <td>${fmt(r.resistance)}</td>
+        <td>${fmt(r.support)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }, 30);
+});
 </script>
 </body>
 </html>
