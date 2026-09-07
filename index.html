@@ -257,15 +257,6 @@
       <p class="hint" style="margin-top:10px;">આ નંબરો ફક્ત તમારા ડેટા પરથી ગણેલા સંદર્ભ છે — ખરીદ/વેચાણની સલાહ નથી. પોતાનું જોખમ ને stop-loss જાતે નક્કી કરો.</p>
       <p class="hint" style="margin-top:8px; color:var(--warn);">⚠️ "જરૂરી વોલ્યુમ" ચેક કરતી વખતે <b>Total Volume (કુલ traded)</b> જોવું — broker app ના Market Depth માં દેખાતું "Buy Qty"/"Total Buy Qty" નહીં (એ ફક્ત queue માં પડેલા orders છે, actual trade નહીં).</p>
     </div>
-    <div class="panel" style="margin-top:12px; display:none;" id="fibSection">
-      <h2>ફિબોનાસી લેવલ (Fibonacci)</h2>
-      <p class="hint" id="fibSwingLine" style="margin-bottom:10px;"></p>
-      <p class="field-label" style="margin-bottom:6px;">રિટ્રેસમેન્ટ — પુલબેક/બાઉન્સ પર support-resistance</p>
-      <div class="stats-grid" id="fibRetraceGrid"></div>
-      <p class="field-label" style="margin:14px 0 6px;">એક્સટેન્શન — બ્રેકઆઉટ પછીના ટાર્ગેટ</p>
-      <div class="stats-grid" id="fibExtendGrid"></div>
-      <p class="hint" style="margin-top:10px;">Elliott Wave traders પણ સામાન્ય રીતે આ જ Fibonacci levels ને લક્ષ્ય/સપોર્ટ તરીકે વાપરે છે — wave count subjective હોય, પણ આ levels ફોર્મ્યુલા-આધારિત અને objective છે.</p>
-    </div>
     <div class="panel" style="margin-top:12px;">
       <h2>સમજૂતી</h2>
       <div id="explainText" class="explain-text"></div>
@@ -1186,7 +1177,6 @@ function analyze(){
   renderVerdict(score, factors, statsObj);
   renderExplanation(score, statsObj, data);
   renderLevels(statsObj);
-  renderFibonacci(data);
   drawChart(data, resistance, support);
 }
 
@@ -1230,53 +1220,6 @@ function renderLevels(s){
     <div class="stat"><span class="k">Target 10% (entry થી)</span><span class="v">${fmt(dipTarget10)}</span></div>
     <div class="stat"><span class="k">Target — રેઝિસ્ટન્સ સુધી</span><span class="v">${fmt(dipTargetResistance)}</span></div>
   `;
-}
-
-// Fibonacci retracement/extension — objective, formula-based stand-in for
-// the swing-based levels that Elliott Wave / manual chart analysts use.
-function renderFibonacci(data){
-  const fibSection = document.getElementById('fibSection');
-  if(data.length < 5){ fibSection.style.display = 'none'; return; }
-
-  // Find the biggest swing in the uploaded history: the highest high and lowest low.
-  let highVal = -Infinity, highIdx = 0, lowVal = Infinity, lowIdx = 0;
-  data.forEach((r,i)=>{
-    if(r.high > highVal){ highVal = r.high; highIdx = i; }
-    if(r.low < lowVal){ lowVal = r.low; lowIdx = i; }
-  });
-  if(highIdx === lowIdx){ fibSection.style.display = 'none'; return; }
-
-  fibSection.style.display = 'block';
-  const range = highVal - lowVal;
-  const uptrend = lowIdx < highIdx;   // swing low happened before swing high => up-move, now watching pullback
-  const swingLine = document.getElementById('fibSwingLine');
-  const retraceGrid = document.getElementById('fibRetraceGrid');
-  const extendGrid = document.getElementById('fibExtendGrid');
-
-  const retraceRatios = [0.236, 0.382, 0.5, 0.618, 0.786];
-  const extendRatios = [1.272, 1.618, 2.0];
-
-  if(uptrend){
-    swingLine.innerHTML = `સ્વિંગ: <b>સપોર્ટ ${fmt(lowVal)}</b> (${data[lowIdx].date}) → <b>રેઝિસ્ટન્સ ${fmt(highVal)}</b> (${data[highIdx].date}). હાલ ઉપરની ચાલ પછી પુલબેક આવે તો નીચેના levels પર સપોર્ટ શોધો; ઉપર તૂટે તો extension levels ટાર્ગેટ ગણો.`;
-    retraceGrid.innerHTML = retraceRatios.map(r=>{
-      const lvl = highVal - range*r;
-      return `<div class="stat"><span class="k">${(r*100).toFixed(1)}%</span><span class="v">${fmt(lvl)}</span></div>`;
-    }).join('');
-    extendGrid.innerHTML = extendRatios.map(r=>{
-      const lvl = lowVal + range*r;
-      return `<div class="stat"><span class="k">${(r*100).toFixed(1)}%</span><span class="v">${fmt(lvl)}</span></div>`;
-    }).join('');
-  } else {
-    swingLine.innerHTML = `સ્વિંગ: <b>રેઝિસ્ટન્સ ${fmt(highVal)}</b> (${data[highIdx].date}) → <b>સપોર્ટ ${fmt(lowVal)}</b> (${data[lowIdx].date}). હાલ નીચેની ચાલ પછી બાઉન્સ આવે તો નીચેના levels પર રેઝિસ્ટન્સ શોધો; નીચે તૂટે તો extension levels ટાર્ગેટ ગણો.`;
-    retraceGrid.innerHTML = retraceRatios.map(r=>{
-      const lvl = lowVal + range*r;
-      return `<div class="stat"><span class="k">${(r*100).toFixed(1)}%</span><span class="v">${fmt(lvl)}</span></div>`;
-    }).join('');
-    extendGrid.innerHTML = extendRatios.map(r=>{
-      const lvl = highVal - range*r;
-      return `<div class="stat"><span class="k">${(r*100).toFixed(1)}%</span><span class="v">${fmt(lvl)}</span></div>`;
-    }).join('');
-  }
 }
 
 function renderExplanation(score, s, data){
