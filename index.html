@@ -378,7 +378,8 @@
 
   <section class="panel">
     <h2>Bhavcopy Upload (બધા શેર)</h2>
-    <span class="field-label">NSE Archives → "CM-UDiFF Common Bhavcopy Final(zip)" — ZIP કે અંદરની CSV, બંને ચાલશે. ઘણી ફાઈલો એકસાથે પસંદ કરી શકાય.</span>
+    <a class="nse-link" href="https://www.nseindia.com/all-reports" target="_blank" rel="noopener">NSE All Reports પેજ ખોલો →</a>
+    <span class="field-label" style="margin-top:10px; display:block;">પેજ પર "bhavcopy" શોધો → "CM-UDiFF Common Bhavcopy Final(zip)" → તારીખ પસંદ કરો → Download. ZIP કે અંદરની CSV, બંને સીધું ચાલશે. ઘણી ફાઈલો એકસાથે પસંદ કરી શકાય.</span>
     <div class="row" style="margin-top:8px;">
       <input type="file" id="bhavFileInput" accept=".csv,.zip,text/csv,application/zip" multiple>
     </div>
@@ -401,7 +402,7 @@
       <button id="runScreenerBtn">સ્ક્રીન કરો</button>
     </div>
     <div id="screenerWrap" style="margin-top:12px;"></div>
-    <p class="hint" style="margin-top:10px;">ઓછામાં ઓછા 20 દિવસનો ડેટા હોય એવા શેર જ ગણાય છે. આ સ્કોર-આધારિત યાદી છે — ખરીદ સલાહ નથી, પોતાનું સંશોધન કરવું.</p>
+    <p class="hint" style="margin-top:10px;"><b>Entry ભાવ</b> = હાલનો છેલ્લો બંધ ભાવ (આ શેર પહેલેથી resistance તોડી ચૂક્યા છે, એટલે entry એ જ ભાવે ગણાય, જૂના resistance level પર નહીં). <b>Stop-loss</b> = support ની થોડું નીચે. ઓછામાં ઓછા 20 દિવસનો ડેટા હોય એવા શેર જ ગણાય છે. આ સ્કોર-આધારિત યાદી છે — ખરીદ સલાહ નથી, પોતાનું સંશોધન કરવું.</p>
   </section>
 
   </div>
@@ -1817,7 +1818,34 @@ function computeBhavSignal(rows){
 
   if(ma5 && ma20){ if(ma5>ma20) score += 1; else score -= 1; }
 
-  return { symbol: null, score, resistance, support, lastClose, ma5, ma20, avgVol, lastVol, days: n };
+  // Freshness check: how many of the last few days has price already been above resistance?
+  // If it broke out several days ago and kept running, it's a "already moved / chasing" entry, not fresh.
+  let daysAboveResistance = 0;
+  for(let i=lastIdx; i>=0 && daysAboveResistance<10; i--){
+    if(closes[i] > resistance) daysAboveResistance++;
+    else break;
+  }
+  const distFromResistancePct = ((lastClose - resistance)/resistance*100);
+
+  // Additional check: how much has price already run up over the last ~15 days?
+  // (Rolling resistance rises WITH price in a strong trend, so the above check alone
+  // can miss stocks that have already rallied hard — this catches that.)
+  const lookbackIdx = Math.max(0, n-16);
+  const pastClose = closes[lookbackIdx];
+  const runUp15dPct = ((lastClose - pastClose)/pastClose*100);
+
+  let freshness;
+  if(lastClose <= resistance){
+    freshness = null; // hasn't broken out yet, not applicable
+  } else if(runUp15dPct > 15 || distFromResistancePct > 10 || daysAboveResistance >= 4){
+    freshness = 'ચૂકાઈ ગયું (already moved)';
+  } else if(daysAboveResistance <= 1 && distFromResistancePct <= 5 && runUp15dPct <= 8){
+    freshness = 'તાજું (fresh)';
+  } else {
+    freshness = 'ચાલુ (running)';
+  }
+
+  return { symbol: null, score, resistance, support, lastClose, ma5, ma20, avgVol, lastVol, days: n, distFromResistancePct, runUp15dPct, freshness, daysAboveResistance };
 }
 
 const runScreenerBtn = document.getElementById('runScreenerBtn');
@@ -1833,7 +1861,10 @@ runScreenerBtn.addEventListener('click', ()=>{
       if(sig){ sig.symbol = sym; results.push(sig); }
     });
 
-    const ready = results.filter(r=>r.score >= 1).sort((a,b)=>b.score-a.score);
+    let ready = results.filter(r=>r.score >= 1);
+    // fresh breakouts first, then running, then already-moved; within each, higher score first
+    const freshRank = f => f==='તાજું (fresh)' ? 0 : (f==='ચાલુ (running)' ? 1 : (f===null ? 1.5 : 2));
+    ready.sort((a,b)=> (freshRank(a.freshness)-freshRank(b.freshness)) || (b.score-a.score));
 
     if(symbols.length === 0){
       wrap.innerHTML = '<p class="empty">પહેલા Bhavcopy ફાઈલો upload કરો.</p>';
@@ -1844,19 +1875,34 @@ runScreenerBtn.addEventListener('click', ()=>{
       return;
     }
 
-    let html = `<p class="hint" style="margin-bottom:10px;">${symbols.length} શેર ચેક કર્યા — ${ready.length} entry-ready મળ્યા:</p>`;
-    html += '<table><thead><tr><th style="text-align:left;">શેર</th><th>સ્કોર</th><th>ભાવ</th><th>Resistance</th><th>Support</th></tr></thead><tbody>';
-    ready.slice(0,100).forEach(r=>{
-      html += `<tr>
-        <td style="text-align:left; font-weight:600;">${r.symbol}</td>
-        <td class="val pos">+${fmt(r.score,1)}</td>
-        <td>${fmt(r.lastClose)}</td>
-        <td>${fmt(r.resistance)}</td>
-        <td>${fmt(r.support)}</td>
-      </tr>`;
-    });
-    html += '</tbody></table>';
+    const freshCount = ready.filter(r=>r.freshness==='તાજું (fresh)').length;
+    let html = `<p class="hint" style="margin-bottom:6px;">${symbols.length} શેર ચેક કર્યા — ${ready.length} entry-ready મળ્યા (${freshCount} તાજા):</p>`;
+    html += `<label style="display:flex; align-items:center; gap:6px; font-size:.82rem; margin-bottom:10px;">
+      <input type="checkbox" id="hideMovedCheck"> ચૂકાઈ ગયેલા (already moved) hide કરો
+    </label>`;
+    html += '<div id="screenerTableWrap"></div>';
     wrap.innerHTML = html;
+
+    function renderTable(hideMoved){
+      const rows = hideMoved ? ready.filter(r=>r.freshness!=='ચૂકાઈ ગયું (already moved)') : ready;
+      let t = '<table><thead><tr><th style="text-align:left;">શેર</th><th>સ્કોર</th><th>Entry ભાવ</th><th>Stop-loss</th><th>%ઉપર</th><th style="text-align:left;">સ્થિતિ</th></tr></thead><tbody>';
+      rows.slice(0,150).forEach(r=>{
+        const freshClass = r.freshness==='તાજું (fresh)' ? 'val pos' : (r.freshness==='ચૂકાઈ ગયું (already moved)' ? 'val neg' : 'val flat');
+        const stopLoss = r.support*0.98;
+        t += `<tr>
+          <td style="text-align:left; font-weight:600;">${r.symbol}</td>
+          <td class="val pos">+${fmt(r.score,1)}</td>
+          <td>${fmt(r.lastClose)}</td>
+          <td>${fmt(stopLoss)}</td>
+          <td>${r.lastClose>r.resistance?fmt(r.distFromResistancePct,1)+'%':'—'}</td>
+          <td style="text-align:left; font-size:.76rem;" class="${freshClass}">${r.freshness||'—'}</td>
+        </tr>`;
+      });
+      t += '</tbody></table>';
+      document.getElementById('screenerTableWrap').innerHTML = t;
+    }
+    renderTable(false);
+    document.getElementById('hideMovedCheck').addEventListener('change', (e)=>renderTable(e.target.checked));
   }, 30);
 });
 </script>
