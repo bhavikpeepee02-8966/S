@@ -402,7 +402,7 @@
       <button id="runScreenerBtn">સ્ક્રીન કરો</button>
     </div>
     <div id="screenerWrap" style="margin-top:12px;"></div>
-    <p class="hint" style="margin-top:10px;"><b>Entry ભાવ</b> = હાલનો છેલ્લો બંધ ભાવ (આ શેર પહેલેથી resistance તોડી ચૂક્યા છે, એટલે entry એ જ ભાવે ગણાય, જૂના resistance level પર નહીં). <b>Stop-loss</b> = support ની થોડું નીચે. ઓછામાં ઓછા 20 દિવસનો ડેટા હોય એવા શેર જ ગણાય છે. આ સ્કોર-આધારિત યાદી છે — ખરીદ સલાહ નથી, પોતાનું સંશોધન કરવું.</p>
+    <p class="hint" style="margin-top:10px;"><b>Entry ભાવ</b> = હાલનો છેલ્લો બંધ ભાવ (આ શેર પહેલેથી resistance તોડી ચૂક્યા છે, એટલે entry એ જ ભાવે ગણાય, જૂના resistance level પર નહીં). <b>Stop-loss</b> = support ની થોડું નીચે. <b>%ઉપર</b> = ભાવ પોતાના 20-દિવસના resistance level થી કેટલા % ઉપર નીકળી ગયો છે (ઓછું % = તાજો breakout, વધુ % = ઘણો ચઢી ચૂક્યો). ઓછામાં ઓછા 20 દિવસનો ડેટા હોય એવા શેર જ ગણાય છે. આ સ્કોર-આધારિત યાદી છે — ખરીદ સલાહ નથી, પોતાનું સંશોધન કરવું.</p>
   </section>
 
   </div>
@@ -1885,7 +1885,11 @@ runScreenerBtn.addEventListener('click', ()=>{
 
     function renderTable(hideMoved){
       const rows = hideMoved ? ready.filter(r=>r.freshness!=='ચૂકાઈ ગયું (already moved)') : ready;
-      let t = '<table><thead><tr><th style="text-align:left;">શેર</th><th>સ્કોર</th><th>Entry ભાવ</th><th>Stop-loss</th><th>%ઉપર</th><th style="text-align:left;">સ્થિતિ</th></tr></thead><tbody>';
+      const hiddenCount = ready.length - rows.length;
+      let countLine = hideMoved
+        ? `<p class="hint" style="margin-bottom:8px;">${ready.length} માંથી <b>${rows.length}</b> દેખાય છે (${hiddenCount} ચૂકાઈ ગયેલા hide કર્યા)</p>`
+        : '';
+      let t = countLine + '<table><thead><tr><th style="text-align:left;">શેર</th><th>સ્કોર</th><th>Entry ભાવ</th><th>Stop-loss</th><th>%ઉપર</th><th style="text-align:left;">સ્થિતિ</th></tr></thead><tbody>';
       rows.slice(0,150).forEach(r=>{
         const freshClass = r.freshness==='તાજું (fresh)' ? 'val pos' : (r.freshness==='ચૂકાઈ ગયું (already moved)' ? 'val neg' : 'val flat');
         const stopLoss = r.support*0.98;
