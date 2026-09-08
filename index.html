@@ -402,7 +402,7 @@
       <button id="runScreenerBtn">સ્ક્રીન કરો</button>
     </div>
     <div id="screenerWrap" style="margin-top:12px;"></div>
-    <p class="hint" style="margin-top:10px;"><b>Entry ભાવ</b> = હાલનો છેલ્લો બંધ ભાવ (આ શેર પહેલેથી resistance તોડી ચૂક્યા છે, એટલે entry એ જ ભાવે ગણાય, જૂના resistance level પર નહીં). <b>Stop-loss</b> = support ની થોડું નીચે. <b>%ઉપર</b> = ભાવ પોતાના 20-દિવસના resistance level થી કેટલા % ઉપર નીકળી ગયો છે (ઓછું % = તાજો breakout, વધુ % = ઘણો ચઢી ચૂક્યો). ઓછામાં ઓછા 20 દિવસનો ડેટા હોય એવા શેર જ ગણાય છે. આ સ્કોર-આધારિત યાદી છે — ખરીદ સલાહ નથી, પોતાનું સંશોધન કરવું.</p>
+    <p class="hint" style="margin-top:10px;"><b>Entry ભાવ</b> = હાલનો છેલ્લો બંધ ભાવ (આ શેર પહેલેથી resistance તોડી ચૂક્યા છે, એટલે entry એ જ ભાવે ગણાય, જૂના resistance level પર નહીં). <b>Stop-loss</b> = support ની થોડું નીચે. <b>%ઉપર</b> = ભાવ પોતાના 20-દિવસના resistance level થી કેટલા % ઉપર નીકળી ગયો છે (ઓછું % = તાજો breakout, વધુ % = ઘણો ચઢી ચૂક્યો). Liquid ETF જેવા લગભગ-સપાટ instruments (20-દિવસની રેન્જ 3% થી ઓછી) આપોઆપ બાકાત રખાય છે. ઓછામાં ઓછા 20 દિવસનો ડેટા હોય એવા શેર જ ગણાય છે. આ સ્કોર-આધારિત યાદી છે — ખરીદ સલાહ નથી, પોતાનું સંશોધન કરવું.</p>
   </section>
 
   </div>
@@ -1845,7 +1845,8 @@ function computeBhavSignal(rows){
     freshness = 'ચાલુ (running)';
   }
 
-  return { symbol: null, score, resistance, support, lastClose, ma5, ma20, avgVol, lastVol, days: n, distFromResistancePct, runUp15dPct, freshness, daysAboveResistance };
+  const volatilityPct = ((resistance - support)/support*100);
+  return { symbol: null, score, resistance, support, lastClose, ma5, ma20, avgVol, lastVol, days: n, distFromResistancePct, runUp15dPct, freshness, daysAboveResistance, volatilityPct };
 }
 
 const runScreenerBtn = document.getElementById('runScreenerBtn');
@@ -1861,7 +1862,7 @@ runScreenerBtn.addEventListener('click', ()=>{
       if(sig){ sig.symbol = sym; results.push(sig); }
     });
 
-    let ready = results.filter(r=>r.score >= 1);
+    let ready = results.filter(r=>r.score >= 1 && r.volatilityPct >= 3);
     // fresh breakouts first, then running, then already-moved; within each, higher score first
     const freshRank = f => f==='તાજું (fresh)' ? 0 : (f==='ચાલુ (running)' ? 1 : (f===null ? 1.5 : 2));
     ready.sort((a,b)=> (freshRank(a.freshness)-freshRank(b.freshness)) || (b.score-a.score));
