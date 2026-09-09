@@ -1603,7 +1603,7 @@ renderCheckLog();
 // ============ Part 4: Bhavcopy Screener ============
 const BHAV_KEY = 'bhavStoreV1';       // { SYMBOL: [[date,o,h,l,c,v], ...] }
 const BHAV_DATES_KEY = 'bhavDatesV1'; // ["2026-08-01", "2026-08-02", ...]
-const BHAV_ROLLING_DAYS = 35;         // cap per-symbol history to bound storage size
+const BHAV_ROLLING_DAYS = 25;         // cap per-symbol history to bound storage size (20-day lookback + buffer)
 
 function loadBhavStore(){
   try{ const raw = localStorage.getItem(BHAV_KEY); return raw ? JSON.parse(raw) : {}; }
@@ -1622,8 +1622,22 @@ function saveBhavStore(){
     localStorage.setItem(BHAV_DATES_KEY, JSON.stringify(bhavDates));
     return true;
   }catch(e){
-    alert('Storage ભરાઈ ગયું છે (બહુ બધા દિવસનો ડેટા) — જૂનો ડેટા સાફ કરો અથવા ઓછા દિવસ રાખો.');
-    return false;
+    // Quota exceeded — automatically trim harder (to 20 days, the bare minimum needed) and retry once
+    // before giving up, so we don't lose everything just uploaded.
+    Object.keys(bhavStore).forEach(sym=>{
+      if(bhavStore[sym].length > 20){
+        bhavStore[sym] = bhavStore[sym].slice(bhavStore[sym].length - 20);
+      }
+    });
+    try{
+      localStorage.setItem(BHAV_KEY, JSON.stringify(bhavStore));
+      localStorage.setItem(BHAV_DATES_KEY, JSON.stringify(bhavDates));
+      alert('Storage લગભગ ભરાઈ ગયું હતું — આપોઆપ 20 દિવસ સુધી ટૂંકું કરીને સેવ કર્યું.');
+      return true;
+    }catch(e2){
+      alert('Storage ભરાઈ ગયું છે — "બધો Bhavcopy ડેટા સાફ કરો" દબાવીને ફરી શરૂ કરો (ઓછા શેર/દિવસ સાથે).');
+      return false;
+    }
   }
 }
 
