@@ -1904,12 +1904,14 @@ runScreenerBtn.addEventListener('click', ()=>{
       let countLine = hideMoved
         ? `<p class="hint" style="margin-bottom:8px;">${ready.length} માંથી <b>${rows.length}</b> દેખાય છે (${hiddenCount} ચૂકાઈ ગયેલા hide કર્યા)</p>`
         : '';
-      let t = countLine + '<table><thead><tr><th style="text-align:left;">શેર</th><th>સ્કોર</th><th>Entry ભાવ</th><th>Stop-loss</th><th>%ઉપર</th><th style="text-align:left;">સ્થિતિ</th></tr></thead><tbody>';
+      let exportBtn = '<button id="exportScreenerBtn" class="ghost" style="margin-bottom:10px;">CSV Export કરો</button>';
+      let t = countLine + exportBtn + '<table><thead><tr><th style="text-align:left;">શેર</th><th>સ્કોર</th><th>Entry ભાવ</th><th>Stop-loss</th><th>%ઉપર</th><th style="text-align:left;">સ્થિતિ</th></tr></thead><tbody>';
       rows.slice(0,150).forEach(r=>{
         const freshClass = r.freshness==='તાજું (fresh)' ? 'val pos' : (r.freshness==='ચૂકાઈ ગયું (already moved)' ? 'val neg' : 'val flat');
         const stopLoss = r.support*0.98;
+        const gLink = `https://www.google.com/finance/quote/${encodeURIComponent(r.symbol)}:NSE`;
         t += `<tr>
-          <td style="text-align:left; font-weight:600;">${r.symbol}</td>
+          <td style="text-align:left; font-weight:600;"><a href="${gLink}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${r.symbol}</a></td>
           <td class="val pos">+${fmt(r.score,1)}</td>
           <td>${fmt(r.lastClose)}</td>
           <td>${fmt(stopLoss)}</td>
@@ -1919,6 +1921,25 @@ runScreenerBtn.addEventListener('click', ()=>{
       });
       t += '</tbody></table>';
       document.getElementById('screenerTableWrap').innerHTML = t;
+
+      document.getElementById('exportScreenerBtn').addEventListener('click', ()=>{
+        const todayStr = new Date().toISOString().slice(0,10);
+        let csv = 'Date,Symbol,Score,EntryPrice,StopLoss,PercentAboveResistance,Status\n';
+        rows.forEach(r=>{
+          const sl = r.support*0.98;
+          const pct = r.lastClose>r.resistance ? r.distFromResistancePct.toFixed(1) : '';
+          csv += `${todayStr},${r.symbol},${r.score},${r.lastClose},${sl.toFixed(2)},${pct},"${r.freshness||''}"\n`;
+        });
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `screener-results-${todayStr}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
     }
     renderTable(false);
     document.getElementById('hideMovedCheck').addEventListener('change', (e)=>renderTable(e.target.checked));
