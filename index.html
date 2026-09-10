@@ -1909,7 +1909,7 @@ runScreenerBtn.addEventListener('click', ()=>{
       rows.slice(0,150).forEach(r=>{
         const freshClass = r.freshness==='તાજું (fresh)' ? 'val pos' : (r.freshness==='ચૂકાઈ ગયું (already moved)' ? 'val neg' : 'val flat');
         const stopLoss = r.support*0.98;
-        const gLink = `https://www.google.com/finance/quote/${encodeURIComponent(r.symbol)}:NSE`;
+        const gLink = `https://www.google.com/search?q=NSE:${encodeURIComponent(r.symbol)}+share+price`;
         t += `<tr>
           <td style="text-align:left; font-weight:600;"><a href="${gLink}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${r.symbol}</a></td>
           <td class="val pos">+${fmt(r.score,1)}</td>
