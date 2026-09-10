@@ -198,6 +198,7 @@
     <button id="tab2Btn" class="tab-btn">ભાગ 2: સેક્ટર + બલ્ક ડીલ</button>
     <button id="tab3Btn" class="tab-btn">ભાગ 3: ચેક લોગ</button>
     <button id="tab4Btn" class="tab-btn">ભાગ 4: સ્ક્રીનર</button>
+    <button id="tab5Btn" class="tab-btn">બેકઅપ / સિંક</button>
   </div>
 
   <div id="part1View">
@@ -403,6 +404,46 @@
     </div>
     <div id="screenerWrap" style="margin-top:12px;"></div>
     <p class="hint" style="margin-top:10px;"><b>Entry ભાવ</b> = હાલનો છેલ્લો બંધ ભાવ (આ શેર પહેલેથી resistance તોડી ચૂક્યા છે, એટલે entry એ જ ભાવે ગણાય, જૂના resistance level પર નહીં). <b>Stop-loss</b> = support ની થોડું નીચે. <b>%ઉપર</b> = ભાવ પોતાના 20-દિવસના resistance level થી કેટલા % ઉપર નીકળી ગયો છે (ઓછું % = તાજો breakout, વધુ % = ઘણો ચઢી ચૂક્યો). Liquid ETF જેવા લગભગ-સપાટ instruments (20-દિવસની રેન્જ 3% થી ઓછી) આપોઆપ બાકાત રખાય છે. ઓછામાં ઓછા 20 દિવસનો ડેટા હોય એવા શેર જ ગણાય છે. આ સ્કોર-આધારિત યાદી છે — ખરીદ સલાહ નથી, પોતાનું સંશોધન કરવું.</p>
+  </section>
+
+  </div>
+
+  <div id="part5View" style="display:none;">
+
+  <section class="panel">
+    <h2>☁️ GitHub Cloud Sync (એન્ક્રિપ્ટેડ)</h2>
+    <p class="hint">ડેટા encrypt થઈને તમારા private GitHub repo માં જાય છે — repo જોનાર કોઈને પણ સાચો ડેટા ના દેખાય. Chrome cache/data clear થાય તો પણ અહીંથી પાછો મેળવી શકાશે.</p>
+
+    <div class="row" style="margin-top:12px;">
+      <div style="flex:1; min-width:140px;">
+        <span class="field-label">GitHub Username</span>
+        <input type="text" id="ghOwner" placeholder="દા.ત. bhavikpeepee02-8966">
+      </div>
+      <div style="flex:1; min-width:140px;">
+        <span class="field-label">Repo નામ</span>
+        <input type="text" id="ghRepo" placeholder="દા.ત. Bvkdatabkp">
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <div style="flex:1; min-width:140px;">
+        <span class="field-label">Personal Access Token</span>
+        <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx">
+      </div>
+      <div style="flex:1; min-width:140px;">
+        <span class="field-label">ફાઈલ નામ (repo માં)</span>
+        <input type="text" id="ghPath" placeholder="breakout-screener.json">
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <input type="password" id="ghPassword" placeholder="Encryption Password (તમે નક્કી કરો)">
+    </div>
+    <p class="hint" style="margin-top:6px; color:var(--warn);">⚠️ આ Password ભૂલશો નહીં — ભૂલી જાઓ તો cloud પરનો ડેટા પાછો decrypt નહીં થાય. Username/Repo/Token/Path આ ફોન પર જ સેવ રહેશે (ફરી નાખવા નહીં પડે); Password સેવ નથી થતો, દર વખતે નાખવો પડશે (સુરક્ષા માટે).</p>
+
+    <div class="row" style="margin-top:12px;">
+      <button id="ghSaveBtn">⬆️ Cloud પર Save કરો</button>
+      <button id="ghRestoreBtn" class="ghost">⬇️ Cloud માંથી Restore કરો</button>
+    </div>
+    <p class="hint" id="ghSyncStatus" style="margin-top:10px;"></p>
   </section>
 
   </div>
@@ -1498,16 +1539,19 @@ const tab1Btn = document.getElementById('tab1Btn');
 const tab2Btn = document.getElementById('tab2Btn');
 const tab3Btn = document.getElementById('tab3Btn');
 const tab4Btn = document.getElementById('tab4Btn');
+const tab5Btn = document.getElementById('tab5Btn');
 const part1View = document.getElementById('part1View');
 const part2View = document.getElementById('part2View');
 const part3View = document.getElementById('part3View');
 const part4View = document.getElementById('part4View');
+const part5View = document.getElementById('part5View');
 
 const allTabs = [
   { btn: tab1Btn, view: part1View },
   { btn: tab2Btn, view: part2View },
   { btn: tab3Btn, view: part3View },
-  { btn: tab4Btn, view: part4View }
+  { btn: tab4Btn, view: part4View },
+  { btn: tab5Btn, view: part5View }
 ];
 
 function switchTab(activeIdx){
@@ -1522,6 +1566,7 @@ tab1Btn.addEventListener('click', ()=>switchTab(0));
 tab2Btn.addEventListener('click', ()=>switchTab(1));
 tab3Btn.addEventListener('click', ()=>switchTab(2));
 tab4Btn.addEventListener('click', ()=>switchTab(3));
+tab5Btn.addEventListener('click', ()=>switchTab(4));
 
 // ---- Check Log (Part 3) ----
 const CHECKLOG_KEY = 'checkLogV1';
@@ -1944,6 +1989,153 @@ runScreenerBtn.addEventListener('click', ()=>{
     renderTable(false);
     document.getElementById('hideMovedCheck').addEventListener('change', (e)=>renderTable(e.target.checked));
   }, 30);
+});
+
+// ================= Backup: GitHub Encrypted Cloud Sync =================
+const BACKUP_KEYS = [STORAGE_KEY, SECTOR_KEY, BULK_KEY, 'bulkStampV1', CHECKLOG_KEY, BHAV_KEY, BHAV_DATES_KEY];
+const GH_SETTINGS_KEY = 'ghSyncSettingsV1'; // owner/repo/path/token saved locally (NOT the encryption password)
+
+function collectAllData(){
+  const out = {};
+  BACKUP_KEYS.forEach(k=>{
+    const v = localStorage.getItem(k);
+    if(v !== null) out[k] = v;
+  });
+  return out;
+}
+function restoreAllData(obj){
+  BACKUP_KEYS.forEach(k=>{
+    if(obj[k] !== undefined) localStorage.setItem(k, obj[k]);
+    else localStorage.removeItem(k);
+  });
+}
+
+// ---- Encryption helpers (AES-GCM, password via PBKDF2) ----
+async function deriveKey(password, salt){
+  const enc = new TextEncoder();
+  const baseKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt, iterations:150000, hash:'SHA-256' },
+    baseKey, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
+  );
+}
+function buf2b64(buf){
+  let bin=''; const bytes=new Uint8Array(buf);
+  for(let i=0;i<bytes.byteLength;i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b642buf(b64){
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+async function encryptData(plainObj, password){
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(password, salt);
+  const cipherBuf = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(JSON.stringify(plainObj)));
+  return JSON.stringify({ v:1, salt:buf2b64(salt), iv:buf2b64(iv), data:buf2b64(cipherBuf) });
+}
+async function decryptData(payloadStr, password){
+  const payload = JSON.parse(payloadStr);
+  const salt = new Uint8Array(b642buf(payload.salt));
+  const iv = new Uint8Array(b642buf(payload.iv));
+  const key = await deriveKey(password, salt);
+  const plainBuf = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, b642buf(payload.data));
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+}
+
+// ---- GitHub settings (owner/repo/path/token) persisted locally, password is not ----
+function loadGhSettings(){
+  try{ return JSON.parse(localStorage.getItem(GH_SETTINGS_KEY)) || {}; }catch(e){ return {}; }
+}
+function saveGhSettings(s){ localStorage.setItem(GH_SETTINGS_KEY, JSON.stringify(s)); }
+
+const ghOwnerInput = document.getElementById('ghOwner');
+const ghRepoInput = document.getElementById('ghRepo');
+const ghTokenInput = document.getElementById('ghToken');
+const ghPathInput = document.getElementById('ghPath');
+const ghPasswordInput = document.getElementById('ghPassword');
+const ghSyncStatus = document.getElementById('ghSyncStatus');
+
+(function initGhFields(){
+  const s = loadGhSettings();
+  if(s.owner) ghOwnerInput.value = s.owner;
+  if(s.repo) ghRepoInput.value = s.repo;
+  if(s.token) ghTokenInput.value = s.token;
+  ghPathInput.value = s.path || 'breakout-screener.json';
+})();
+
+function currentGhConfig(){
+  return {
+    owner: ghOwnerInput.value.trim(),
+    repo: ghRepoInput.value.trim(),
+    token: ghTokenInput.value.trim(),
+    path: (ghPathInput.value.trim() || 'breakout-screener.json'),
+    password: ghPasswordInput.value
+  };
+}
+function setStatus(msg, ok){
+  ghSyncStatus.textContent = msg;
+  ghSyncStatus.style.color = ok===true ? 'var(--bull)' : (ok===false ? 'var(--bear)' : 'var(--text-muted)');
+}
+
+document.getElementById('ghSaveBtn').addEventListener('click', async ()=>{
+  const cfg = currentGhConfig();
+  if(!cfg.owner || !cfg.repo || !cfg.token || !cfg.path){ setStatus('❌ Username, Repo, Token અને ફાઈલ નામ ભરવું જરૂરી છે.', false); return; }
+  if(!cfg.password){ setStatus('❌ Encryption Password નાખો.', false); return; }
+  saveGhSettings({ owner:cfg.owner, repo:cfg.repo, token:cfg.token, path:cfg.path });
+  setStatus('⏳ Save થઈ રહ્યું છે...');
+  try{
+    const encrypted = await encryptData(collectAllData(), cfg.password);
+    const apiUrl = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`;
+    // check if file already exists, to get its sha (needed to update)
+    let sha = undefined;
+    const getRes = await fetch(apiUrl, { headers:{ 'Authorization':`token ${cfg.token}`, 'Accept':'application/vnd.github+json' } });
+    if(getRes.status === 200){ const getJson = await getRes.json(); sha = getJson.sha; }
+    else if(getRes.status !== 404){ throw new Error('GitHub read error: '+getRes.status); }
+
+    const putRes = await fetch(apiUrl, {
+      method:'PUT',
+      headers:{ 'Authorization':`token ${cfg.token}`, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        message: 'Backup update ' + new Date().toISOString(),
+        content: btoa(unescape(encodeURIComponent(encrypted))),
+        sha
+      })
+    });
+    if(!putRes.ok){ const t = await putRes.text(); throw new Error('GitHub save error: '+putRes.status+' '+t.slice(0,150)); }
+    setStatus('✅ Cloud પર Save થઈ ગયું ('+new Date().toLocaleString('gu-IN')+')', true);
+  }catch(err){
+    setStatus('❌ Save નિષ્ફળ: '+err.message, false);
+  }
+});
+
+document.getElementById('ghRestoreBtn').addEventListener('click', async ()=>{
+  const cfg = currentGhConfig();
+  if(!cfg.owner || !cfg.repo || !cfg.token || !cfg.path){ setStatus('❌ Username, Repo, Token અને ફાઈલ નામ ભરવું જરૂરી છે.', false); return; }
+  if(!cfg.password){ setStatus('❌ Encryption Password નાખો.', false); return; }
+  if(!confirm('Cloud માંથી Restore કરવાથી આ ફોન પરનો હાલનો ડેટા બદલાઈ જશે. આગળ વધવું છે?')) return;
+  saveGhSettings({ owner:cfg.owner, repo:cfg.repo, token:cfg.token, path:cfg.path });
+  setStatus('⏳ Restore થઈ રહ્યું છે...');
+  try{
+    const apiUrl = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`;
+    const getRes = await fetch(apiUrl, { headers:{ 'Authorization':`token ${cfg.token}`, 'Accept':'application/vnd.github+json' } });
+    if(getRes.status === 404){ setStatus('❌ Cloud પર હજુ કોઈ backup ફાઈલ નથી — પહેલા "Save" કરો.', false); return; }
+    if(!getRes.ok){ throw new Error('GitHub read error: '+getRes.status); }
+    const getJson = await getRes.json();
+    const encrypted = decodeURIComponent(escape(atob(getJson.content.replace(/\n/g,''))));
+    let plainObj;
+    try{ plainObj = await decryptData(encrypted, cfg.password); }
+    catch(e){ setStatus('❌ Decrypt નિષ્ફળ — Password ખોટો હોઈ શકે.', false); return; }
+    restoreAllData(plainObj);
+    setStatus('✅ Restore થઈ ગયું — પેજ ફરી લોડ થાય છે...', true);
+    setTimeout(()=>location.reload(), 900);
+  }catch(err){
+    setStatus('❌ Restore નિષ્ફળ: '+err.message, false);
+  }
 });
 </script>
 </body>
