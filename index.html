@@ -411,8 +411,8 @@
   <div id="part5View" style="display:none;">
 
   <section class="panel">
-    <h2>☁️ GitHub Cloud Sync (એન્ક્રિપ્ટેડ)</h2>
-    <p class="hint">ડેટા encrypt થઈને તમારા private GitHub repo માં જાય છે — repo જોનાર કોઈને પણ સાચો ડેટા ના દેખાય. Chrome cache/data clear થાય તો પણ અહીંથી પાછો મેળવી શકાશે.</p>
+    <h2>☁️ GitHub Cloud Sync</h2>
+    <p class="hint">ડેટા તમારા private GitHub repo માં જાય છે. Chrome cache/data clear થાય તો પણ અહીંથી પાછો મેળવી શકાશે.</p>
 
     <div class="row" style="margin-top:12px;">
       <div style="flex:1; min-width:140px;">
@@ -434,10 +434,7 @@
         <input type="text" id="ghPath" placeholder="breakout-screener.json">
       </div>
     </div>
-    <div class="row" style="margin-top:10px;">
-      <input type="password" id="ghPassword" placeholder="Encryption Password (તમે નક્કી કરો)">
-    </div>
-    <p class="hint" style="margin-top:6px; color:var(--warn);">⚠️ આ Password ભૂલશો નહીં — ભૂલી જાઓ તો cloud પરનો ડેટા પાછો decrypt નહીં થાય. Username/Repo/Token/Path આ ફોન પર જ સેવ રહેશે (ફરી નાખવા નહીં પડે); Password સેવ નથી થતો, દર વખતે નાખવો પડશે (સુરક્ષા માટે).</p>
+    <p class="hint" style="margin-top:6px;">Username/Repo/Token/Path આ ફોન પર જ સેવ રહેશે (ફરી નાખવા નહીં પડે). Repo private હોવાથી ડેટા સુરક્ષિત રહે છે.</p>
 
     <div class="row" style="margin-top:12px;">
       <button id="ghSaveBtn">⬆️ Cloud પર Save કરો</button>
@@ -1993,7 +1990,7 @@ runScreenerBtn.addEventListener('click', ()=>{
 
 // ================= Backup: GitHub Encrypted Cloud Sync =================
 const BACKUP_KEYS = [STORAGE_KEY, SECTOR_KEY, BULK_KEY, 'bulkStampV1', CHECKLOG_KEY, BHAV_KEY, BHAV_DATES_KEY];
-const GH_SETTINGS_KEY = 'ghSyncSettingsV1'; // owner/repo/path/token saved locally (NOT the encryption password)
+const GH_SETTINGS_KEY = 'ghSyncSettingsV1'; // owner/repo/path/token saved locally
 
 function collectAllData(){
   const out = {};
@@ -2010,44 +2007,7 @@ function restoreAllData(obj){
   });
 }
 
-// ---- Encryption helpers (AES-GCM, password via PBKDF2) ----
-async function deriveKey(password, salt){
-  const enc = new TextEncoder();
-  const baseKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey(
-    { name:'PBKDF2', salt, iterations:150000, hash:'SHA-256' },
-    baseKey, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
-  );
-}
-function buf2b64(buf){
-  let bin=''; const bytes=new Uint8Array(buf);
-  for(let i=0;i<bytes.byteLength;i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
-function b642buf(b64){
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
-  return bytes.buffer;
-}
-async function encryptData(plainObj, password){
-  const enc = new TextEncoder();
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(password, salt);
-  const cipherBuf = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(JSON.stringify(plainObj)));
-  return JSON.stringify({ v:1, salt:buf2b64(salt), iv:buf2b64(iv), data:buf2b64(cipherBuf) });
-}
-async function decryptData(payloadStr, password){
-  const payload = JSON.parse(payloadStr);
-  const salt = new Uint8Array(b642buf(payload.salt));
-  const iv = new Uint8Array(b642buf(payload.iv));
-  const key = await deriveKey(password, salt);
-  const plainBuf = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, b642buf(payload.data));
-  return JSON.parse(new TextDecoder().decode(plainBuf));
-}
-
-// ---- GitHub settings (owner/repo/path/token) persisted locally, password is not ----
+// ---- GitHub settings (owner/repo/path/token) persisted locally ----
 function loadGhSettings(){
   try{ return JSON.parse(localStorage.getItem(GH_SETTINGS_KEY)) || {}; }catch(e){ return {}; }
 }
@@ -2057,7 +2017,6 @@ const ghOwnerInput = document.getElementById('ghOwner');
 const ghRepoInput = document.getElementById('ghRepo');
 const ghTokenInput = document.getElementById('ghToken');
 const ghPathInput = document.getElementById('ghPath');
-const ghPasswordInput = document.getElementById('ghPassword');
 const ghSyncStatus = document.getElementById('ghSyncStatus');
 
 (function initGhFields(){
@@ -2073,8 +2032,7 @@ function currentGhConfig(){
     owner: ghOwnerInput.value.trim(),
     repo: ghRepoInput.value.trim(),
     token: ghTokenInput.value.trim(),
-    path: (ghPathInput.value.trim() || 'breakout-screener.json'),
-    password: ghPasswordInput.value
+    path: (ghPathInput.value.trim() || 'breakout-screener.json')
   };
 }
 function setStatus(msg, ok){
@@ -2085,11 +2043,10 @@ function setStatus(msg, ok){
 document.getElementById('ghSaveBtn').addEventListener('click', async ()=>{
   const cfg = currentGhConfig();
   if(!cfg.owner || !cfg.repo || !cfg.token || !cfg.path){ setStatus('❌ Username, Repo, Token અને ફાઈલ નામ ભરવું જરૂરી છે.', false); return; }
-  if(!cfg.password){ setStatus('❌ Encryption Password નાખો.', false); return; }
   saveGhSettings({ owner:cfg.owner, repo:cfg.repo, token:cfg.token, path:cfg.path });
   setStatus('⏳ Save થઈ રહ્યું છે...');
   try{
-    const encrypted = await encryptData(collectAllData(), cfg.password);
+    const dataStr = JSON.stringify(collectAllData());
     const apiUrl = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`;
     // check if file already exists, to get its sha (needed to update)
     let sha = undefined;
@@ -2102,7 +2059,7 @@ document.getElementById('ghSaveBtn').addEventListener('click', async ()=>{
       headers:{ 'Authorization':`token ${cfg.token}`, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
       body: JSON.stringify({
         message: 'Backup update ' + new Date().toISOString(),
-        content: btoa(unescape(encodeURIComponent(encrypted))),
+        content: btoa(unescape(encodeURIComponent(dataStr))),
         sha
       })
     });
@@ -2116,7 +2073,6 @@ document.getElementById('ghSaveBtn').addEventListener('click', async ()=>{
 document.getElementById('ghRestoreBtn').addEventListener('click', async ()=>{
   const cfg = currentGhConfig();
   if(!cfg.owner || !cfg.repo || !cfg.token || !cfg.path){ setStatus('❌ Username, Repo, Token અને ફાઈલ નામ ભરવું જરૂરી છે.', false); return; }
-  if(!cfg.password){ setStatus('❌ Encryption Password નાખો.', false); return; }
   if(!confirm('Cloud માંથી Restore કરવાથી આ ફોન પરનો હાલનો ડેટા બદલાઈ જશે. આગળ વધવું છે?')) return;
   saveGhSettings({ owner:cfg.owner, repo:cfg.repo, token:cfg.token, path:cfg.path });
   setStatus('⏳ Restore થઈ રહ્યું છે...');
@@ -2126,10 +2082,10 @@ document.getElementById('ghRestoreBtn').addEventListener('click', async ()=>{
     if(getRes.status === 404){ setStatus('❌ Cloud પર હજુ કોઈ backup ફાઈલ નથી — પહેલા "Save" કરો.', false); return; }
     if(!getRes.ok){ throw new Error('GitHub read error: '+getRes.status); }
     const getJson = await getRes.json();
-    const encrypted = decodeURIComponent(escape(atob(getJson.content.replace(/\n/g,''))));
+    const dataStr = decodeURIComponent(escape(atob(getJson.content.replace(/\n/g,''))));
     let plainObj;
-    try{ plainObj = await decryptData(encrypted, cfg.password); }
-    catch(e){ setStatus('❌ Decrypt નિષ્ફળ — Password ખોટો હોઈ શકે.', false); return; }
+    try{ plainObj = JSON.parse(dataStr); }
+    catch(e){ setStatus('❌ Cloud પરનો ડેટા વાંચી ના શકાયો.', false); return; }
     restoreAllData(plainObj);
     setStatus('✅ Restore થઈ ગયું — પેજ ફરી લોડ થાય છે...', true);
     setTimeout(()=>location.reload(), 900);
