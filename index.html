@@ -434,7 +434,7 @@
         <input type="text" id="ghPath" placeholder="breakout-screener.json">
       </div>
     </div>
-    <p class="hint" style="margin-top:6px;">Username/Repo/Token/Path આ ફોન પર જ સેવ રહેશે (ફરી નાખવા નહીં પડે). Repo private હોવાથી ડેટા સુરક્ષિત રહે છે.</p>
+    <p class="hint" style="margin-top:6px;">Username/Repo/Token/Path એકવાર ભરીને "Save" કરો — પછી કોઈ પણ ડેટા બદલાય એટલે થોડી સેકન્ડમાં આપોઆપ cloud પર sync થઈ જશે, બટન દબાવવાની જરૂર નહીં.</p>
 
     <div class="row" style="margin-top:12px;">
       <button id="ghSaveBtn">⬆️ Cloud પર Save કરો</button>
@@ -2019,12 +2019,14 @@ const ghTokenInput = document.getElementById('ghToken');
 const ghPathInput = document.getElementById('ghPath');
 const ghSyncStatus = document.getElementById('ghSyncStatus');
 
+const GH_DEFAULTS = { owner:'bhavikpeepee02-8966', repo:'Bvkdatabkp', token:'', path:'breakout-screener.json' };
+
 (function initGhFields(){
   const s = loadGhSettings();
-  if(s.owner) ghOwnerInput.value = s.owner;
-  if(s.repo) ghRepoInput.value = s.repo;
-  if(s.token) ghTokenInput.value = s.token;
-  ghPathInput.value = s.path || 'breakout-screener.json';
+  ghOwnerInput.value = s.owner || GH_DEFAULTS.owner;
+  ghRepoInput.value = s.repo || GH_DEFAULTS.repo;
+  ghTokenInput.value = s.token || GH_DEFAULTS.token;
+  ghPathInput.value = s.path || GH_DEFAULTS.path;
 })();
 
 function currentGhConfig(){
@@ -2040,15 +2042,14 @@ function setStatus(msg, ok){
   ghSyncStatus.style.color = ok===true ? 'var(--bull)' : (ok===false ? 'var(--bear)' : 'var(--text-muted)');
 }
 
-document.getElementById('ghSaveBtn').addEventListener('click', async ()=>{
+async function pushToCloud(silent){
   const cfg = currentGhConfig();
-  if(!cfg.owner || !cfg.repo || !cfg.token || !cfg.path){ setStatus('❌ Username, Repo, Token અને ફાઈલ નામ ભરવું જરૂરી છે.', false); return; }
+  if(!cfg.owner || !cfg.repo || !cfg.token || !cfg.path){ if(!silent) setStatus('❌ Username, Repo, Token અને ફાઈલ નામ ભરવું જરૂરી છે.', false); return; }
   saveGhSettings({ owner:cfg.owner, repo:cfg.repo, token:cfg.token, path:cfg.path });
-  setStatus('⏳ Save થઈ રહ્યું છે...');
+  if(!silent) setStatus('⏳ Save થઈ રહ્યું છે...');
   try{
     const dataStr = JSON.stringify(collectAllData());
     const apiUrl = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`;
-    // check if file already exists, to get its sha (needed to update)
     let sha = undefined;
     const getRes = await fetch(apiUrl, { headers:{ 'Authorization':`token ${cfg.token}`, 'Accept':'application/vnd.github+json' } });
     if(getRes.status === 200){ const getJson = await getRes.json(); sha = getJson.sha; }
@@ -2058,17 +2059,35 @@ document.getElementById('ghSaveBtn').addEventListener('click', async ()=>{
       method:'PUT',
       headers:{ 'Authorization':`token ${cfg.token}`, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
       body: JSON.stringify({
-        message: 'Backup update ' + new Date().toISOString(),
+        message: 'Auto backup ' + new Date().toISOString(),
         content: btoa(unescape(encodeURIComponent(dataStr))),
         sha
       })
     });
     if(!putRes.ok){ const t = await putRes.text(); throw new Error('GitHub save error: '+putRes.status+' '+t.slice(0,150)); }
-    setStatus('✅ Cloud પર Save થઈ ગયું ('+new Date().toLocaleString('gu-IN')+')', true);
+    setStatus('✅ Auto-sync થઈ ગયું ('+new Date().toLocaleString('gu-IN')+')', true);
   }catch(err){
-    setStatus('❌ Save નિષ્ફળ: '+err.message, false);
+    setStatus('❌ Auto-sync નિષ્ફળ: '+err.message, false);
   }
-});
+}
+
+document.getElementById('ghSaveBtn').addEventListener('click', ()=> pushToCloud(false));
+
+// ---- Auto-sync: watch for any data change and push to cloud automatically (debounced) ----
+let autoSyncTimer = null;
+function scheduleAutoSync(){
+  const s = loadGhSettings();
+  if(!s.owner || !s.repo || !s.token || !s.path) return; // not configured yet
+  clearTimeout(autoSyncTimer);
+  autoSyncTimer = setTimeout(()=> pushToCloud(true), 4000);
+}
+(function watchLocalStorageForAutoSync(){
+  const origSetItem = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function(key, value){
+    origSetItem(key, value);
+    if(BACKUP_KEYS.indexOf(key) !== -1) scheduleAutoSync();
+  };
+})();
 
 document.getElementById('ghRestoreBtn').addEventListener('click', async ()=>{
   const cfg = currentGhConfig();
