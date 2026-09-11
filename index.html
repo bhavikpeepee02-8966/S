@@ -20,9 +20,9 @@
     --surface:#1A1F26;
     --surface-2:#20262E;
     --border:#2B323C;
-    --text:#E7EAEE;
-    --text-muted:#8B93A1;
-    --accent:#4FA8A0;
+    --text:#F5F7FA;
+    --text-muted:#AEB6C2;
+    --accent:#5FCFC5;
     --accent-dim:#2E5C58;
     --bull:#4FAF7C;
     --bull-dim:#1E3A2C;
@@ -31,12 +31,13 @@
     --warn:#D9A05B;
   }
   *{box-sizing:border-box;}
+  html{font-size:118%;}
   html,body{margin:0;padding:0;}
   body{
     background:var(--bg);
     color:var(--text);
     font-family:'Noto Sans Gujarati','Noto Sans',sans-serif;
-    line-height:1.5;
+    line-height:1.55;
     padding-bottom:40px;
     -webkit-tap-highlight-color:transparent;
   }
@@ -1557,6 +1558,7 @@ function switchTab(activeIdx){
     t.btn.classList.toggle('active', i===activeIdx);
   });
   window.scrollTo(0,0);
+  localStorage.setItem('lastActiveTabV1', String(activeIdx));
 }
 
 tab1Btn.addEventListener('click', ()=>switchTab(0));
@@ -1564,6 +1566,12 @@ tab2Btn.addEventListener('click', ()=>switchTab(1));
 tab3Btn.addEventListener('click', ()=>switchTab(2));
 tab4Btn.addEventListener('click', ()=>switchTab(3));
 tab5Btn.addEventListener('click', ()=>switchTab(4));
+
+// open on whichever tab was last used
+(function restoreLastTab(){
+  const saved = parseInt(localStorage.getItem('lastActiveTabV1'), 10);
+  if(!isNaN(saved) && saved>=0 && saved<allTabs.length) switchTab(saved);
+})();
 
 // ---- Check Log (Part 3) ----
 const CHECKLOG_KEY = 'checkLogV1';
@@ -1731,6 +1739,9 @@ function mergeBhavRows(rows){
     }
   });
   bhavDates = Array.from(datesSeen).sort();
+  if(bhavDates.length > BHAV_ROLLING_DAYS){
+    bhavDates = bhavDates.slice(bhavDates.length - BHAV_ROLLING_DAYS);
+  }
 }
 
 async function extractCSVFromFile(file){
@@ -1951,7 +1962,7 @@ runScreenerBtn.addEventListener('click', ()=>{
       rows.slice(0,150).forEach(r=>{
         const freshClass = r.freshness==='તાજું (fresh)' ? 'val pos' : (r.freshness==='ચૂકાઈ ગયું (already moved)' ? 'val neg' : 'val flat');
         const stopLoss = r.support*0.98;
-        const gLink = `https://www.google.com/search?q=NSE:${encodeURIComponent(r.symbol)}+share+price`;
+        const gLink = `https://www.google.com/search?q=${encodeURIComponent(r.symbol)}+NSE`;
         t += `<tr>
           <td style="text-align:left; font-weight:600;"><a href="${gLink}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">${r.symbol}</a></td>
           <td class="val pos">+${fmt(r.score,1)}</td>
