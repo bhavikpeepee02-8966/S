@@ -2107,11 +2107,13 @@ document.getElementById('ghRestoreBtn').addEventListener('click', async ()=>{
   setStatus('⏳ Restore થઈ રહ્યું છે...');
   try{
     const apiUrl = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`;
-    const getRes = await fetch(apiUrl, { headers:{ 'Authorization':`token ${cfg.token}`, 'Accept':'application/vnd.github+json' } });
+    // Use the raw-content Accept header, not the default JSON+base64 response —
+    // GitHub's Contents API omits the base64 "content" field for files over ~1MB
+    // (our bhavcopy history data can exceed that), which silently broke restore.
+    const getRes = await fetch(apiUrl, { headers:{ 'Authorization':`token ${cfg.token}`, 'Accept':'application/vnd.github.raw' } });
     if(getRes.status === 404){ setStatus('❌ Cloud પર હજુ કોઈ backup ફાઈલ નથી — પહેલા "Save" કરો.', false); return; }
     if(!getRes.ok){ throw new Error('GitHub read error: '+getRes.status); }
-    const getJson = await getRes.json();
-    const dataStr = decodeURIComponent(escape(atob(getJson.content.replace(/\n/g,''))));
+    const dataStr = await getRes.text();
     let plainObj;
     try{ plainObj = JSON.parse(dataStr); }
     catch(e){ setStatus('❌ Cloud પરનો ડેટા વાંચી ના શકાયો.', false); return; }
