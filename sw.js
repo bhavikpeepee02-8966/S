@@ -1,4 +1,4 @@
-idconst CACHE_NAME = 'breakout-analyzer-v27';
+óidconst CACHE_NAME = 'breakout-analyzer-v28';
 const ASSETS = [
   './',
   './index.html',
