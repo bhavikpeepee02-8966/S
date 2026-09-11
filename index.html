@@ -2001,7 +2001,8 @@ runScreenerBtn.addEventListener('click', ()=>{
 
 // ================= Backup: GitHub Encrypted Cloud Sync =================
 const BACKUP_KEYS = [STORAGE_KEY, SECTOR_KEY, BULK_KEY, 'bulkStampV1', CHECKLOG_KEY, BHAV_KEY, BHAV_DATES_KEY];
-const GH_SETTINGS_KEY = 'ghSyncSettingsV1'; // owner/repo/path/token saved locally
+const GH_DEFAULTS = { owner:'bhavikpeepee02-8966', repo:'Bvkdatabkp', token:'', path:'breakout-screener.json' };
+const GH_SETTINGS_KEY = 'ghSyncSettingsV1_' + GH_DEFAULTS.path; // per-app key — apps on the same github.io domain share localStorage otherwise
 
 function collectAllData(){
   const out = {};
@@ -2030,14 +2031,12 @@ const ghTokenInput = document.getElementById('ghToken');
 const ghPathInput = document.getElementById('ghPath');
 const ghSyncStatus = document.getElementById('ghSyncStatus');
 
-const GH_DEFAULTS = { owner:'bhavikpeepee02-8966', repo:'Bvkdatabkp', token:'', path:'breakout-screener.json' };
-
 (function initGhFields(){
   const s = loadGhSettings();
   ghOwnerInput.value = s.owner || GH_DEFAULTS.owner;
   ghRepoInput.value = s.repo || GH_DEFAULTS.repo;
   ghTokenInput.value = s.token || GH_DEFAULTS.token;
-  ghPathInput.value = s.path || GH_DEFAULTS.path;
+  ghPathInput.value = GH_DEFAULTS.path; // always this app's own filename, never a stored value
 })();
 
 function currentGhConfig(){
